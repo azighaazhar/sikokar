@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ./sikokar-be
+    container_name: sikokar-api
+    ports:
+      - "3002:3002"
+    env_file:
+      - ./sikokar-be/.env
+    environment:
+      DB_HOST: db
+      PORT: 3002
+    depends_on:
+      - db
+
+  web:
+    build:
+      context: ./sikokar-fe
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:3002
+    container_name: sikokar-web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3002
+    depends_on:
+      - api
+
+  db:
+    image: mariadb:10.4
+    container_name: sikokar-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db_sikokar
+      MYSQL_USER: sikokar
+      MYSQL_PASSWORD: sikokar
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./sikokar-be/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  db_data:
