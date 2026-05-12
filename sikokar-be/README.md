@@ -6,10 +6,18 @@ Backend API untuk Sikokar menggunakan Express + MySQL.
 - Node.js 18+ (disarankan 20+)
 - Docker Desktop (disarankan, untuk DB via container)
 
+## Env
+- `PORT` (default `3002`)
+- `DB_HOST` (`db` untuk docker compose, `localhost` untuk lokal)
+- `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- `JWT_SECRET`, `JWT_EXPIRES_IN`
+- `TRUST_PROXY` (set `1` jika di balik proxy)
+- `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`
+
 ## Rekomendasi Tim (paling simpel)
 Tujuan: semua orang tinggal koding, DB seragam lewat Docker.
 1. Salin `.env.example` menjadi `.env`.
-2. Ubah `.env` menjadi:
+2. Set `.env` menjadi:
    - `PORT=3002` (biar tidak bentrok)
    - `DB_HOST=localhost`
 3. Jalankan DB saja:

@@ -1,0 +1,11 @@
+{
+  "name": "sikokar",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k -n fe,be -c blue,green \"npm --prefix sikokar-fe run dev\" \"npm --prefix sikokar-be run dev\"",
+    "dev:db": "docker compose up -d db"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

@@ -4,6 +4,7 @@ Setup ini menjalankan frontend (Next.js), backend (Express), dan database (Maria
 
 ## Prasyarat
 - Docker Desktop
+- Node.js 18+ (untuk jalanin tanpa Docker full)
 
 ## Menjalankan Aplikasi
 1. Salin file env contoh:
@@ -29,6 +30,23 @@ Setup ini menjalankan frontend (Next.js), backend (Express), dan database (Maria
 2. Jalankan container:
    ```bash
    docker compose up --build
+   ```
+
+## Menjalankan Lokal (Frontend + Backend)
+1. Install dependencies di root:
+   ```bash
+   npm install
+   ```
+2. Siapkan env:
+   - `sikokar-be/.env.example` -> `sikokar-be/.env`
+   - `sikokar-fe/.env.example` -> `sikokar-fe/.env.local`
+3. Jalankan DB saja:
+   ```bash
+   npm run dev:db
+   ```
+4. Jalankan frontend + backend bersamaan:
+   ```bash
+   npm run dev
    ```
 
 ## Menjalankan Lokal (Backend + DB via Docker)
