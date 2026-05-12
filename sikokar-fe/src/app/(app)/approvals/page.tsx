@@ -65,7 +65,10 @@ type PinjamanApprovalDetail = {
   terpakaiKredit: number;
   sisaLimitKredit: number;
   kuotaPengajuanHabis: boolean;
+  /** Hanya saran untuk admin; tidak memblokir tombol Setujui/Tolak. */
   recommendation: "Setuju" | "Tolak";
+  /** Penjelasan kondisi yang memicu rekomendasi tolak (jika ada). */
+  peringatan: string[];
   alasan: string[];
 };
 
@@ -100,30 +103,38 @@ const computePinjamanApprovalDetail = (
   const terpakaiKredit = kreditAnggota.reduce((s, k) => s + Number(k.pokok || 0), 0);
   const sisaLimitKredit = Math.max(0, limitKreditAnggota - terpakaiKredit);
 
-  const melebihiLimitPinjaman = nominalPengajuan > sisaLimitPinjaman || totalPinjamanSetelahSetuju > plafonPinjaman;
-  const melebihiLimitKredit = limitKreditAnggota > 0 && terpakaiKredit > limitKreditAnggota;
+  const alertPlafon =
+    nominalPengajuan > sisaLimitPinjaman || totalPinjamanSetelahSetuju > plafonPinjaman;
+  const kreditLimitBerlaku = limitKreditAnggota > 0;
+  const alertKreditHabis = kreditLimitBerlaku && sisaLimitKredit <= 0;
+  const alertKuotaPengajuan = kuotaPengajuanHabis;
 
-  const alasan: string[] = [];
-  let recommendation: "Setuju" | "Tolak";
-
-  if (melebihiLimitPinjaman || melebihiLimitKredit) {
-    recommendation = "Tolak";
-    if (melebihiLimitPinjaman) {
-      alasan.push(
-        "Jumlah pinjaman setelah pengajuan ini melebihi total limit pinjaman berbasis jabatan, atau nominal melebihi sisa limit yang tersedia."
-      );
-    }
-    if (melebihiLimitKredit) {
-      alasan.push("Total pokok kredit barang (aktif/pending) melebihi limit kredit anggota.");
-    }
-  } else if (kuotaPengajuanHabis) {
-    recommendation = "Setuju";
-    alasan.push(
-      `Batas frekuensi entri pinjaman (${maxPengajuanAnggota}× sesuai jabatan/master anggota) terlihat penuh, namun sisa limit pinjaman masih mencukupi nominal ini — rekomendasi tetap Setuju.`
+  const peringatan: string[] = [];
+  if (alertPlafon) {
+    peringatan.push(
+      "Plafon / sisa limit pinjaman jabatan terlampaui untuk nominal ini — sistem merekomendasikan penolakan (keputusan manual admin)."
     );
+  }
+  if (alertKreditHabis) {
+    peringatan.push(
+      "Limit kredit barang anggota habis atau tidak bersisa — sistem merekomendasikan penolakan; admin tetap dapat menyetujui pinjaman tunai secara manual."
+    );
+  }
+  if (alertKuotaPengajuan) {
+    peringatan.push(
+      `Kuota jumlah data pinjaman penuh (${jumlahPinjamanAnggota}/${maxPengajuanAnggota}) — sistem merekomendasikan penolakan; admin tetap dapat menyetujui secara manual.`
+    );
+  }
+
+  const recommendation: "Setuju" | "Tolak" = peringatan.length > 0 ? "Tolak" : "Setuju";
+
+  const alasan: string[] = [
+    "Ini hanya ringkasan & saran sistem, bukan penolakan otomatis. Gunakan tombol Setujui atau Tolak untuk keputusan resmi.",
+  ];
+  if (peringatan.length === 0) {
+    alasan.push("Berdasarkan plafon pinjaman, limit kredit, dan kuota pengajuan, tidak ada peringatan — saran: Setuju.");
   } else {
-    recommendation = "Setuju";
-    alasan.push("Masih dalam batas limit pinjaman dan limit kredit barang tidak terlampaui.");
+    alasan.push(...peringatan);
   }
 
   return {
@@ -140,6 +151,7 @@ const computePinjamanApprovalDetail = (
     sisaLimitKredit,
     kuotaPengajuanHabis,
     recommendation,
+    peringatan,
     alasan,
   };
 };
@@ -327,8 +339,9 @@ export default function ApprovalsPage() {
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Approval</div>
         <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Persetujuan permintaan</h1>
         <p className="text-sm text-slate-500">
-          Pinjaman tunai, kredit kendaraan, dan kredit elektronik. Persetujuan atau penolakan hanya dapat dilakukan di
-          halaman ini. Klik baris pinjaman untuk detail limit dan rekomendasi.
+          Pinjaman tunai, kredit kendaraan, dan kredit elektronik. Setujui atau tolak hanya secara manual di halaman ini.
+          Ringkasan limit pada pinjaman hanya berupa <span className="font-medium text-slate-700">catatan / rekomendasi</span>
+          — tidak ada eksekusi otomatis dari sistem.
         </p>
       </div>
 
@@ -381,8 +394,8 @@ export default function ApprovalsPage() {
           </button>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Filter status & jenis mempersempit tabel. Data limit untuk popup pinjaman selalu memakai seluruh riwayat
-          pinjaman &amp; kredit di server.
+          Filter status & jenis mempersempit tabel. Data limit pada popup pinjaman memakai seluruh riwayat pinjaman
+          &amp; kredit; isinya hanya panduan untuk admin.
         </p>
       </PanelCard>
 
@@ -459,7 +472,10 @@ export default function ApprovalsPage() {
           onRowClick={(row) => openPinjamanDetail(row)}
           isRowClickable={(row) => row.kind === "pinjaman"}
         />
-        <p className="mt-2 text-xs text-slate-500">Baris jenis Pinjaman dapat diklik untuk melihat detail limit.</p>
+        <p className="mt-2 text-xs text-slate-500">
+          Baris Pinjaman dapat diklik untuk catatan limit &amp; rekomendasi (non-blokir). Keputusan akhir: tombol Setujui /
+          Tolak.
+        </p>
       </PanelCard>
 
       {pinjamanDetail && (
@@ -491,13 +507,19 @@ export default function ApprovalsPage() {
             </div>
 
             <div
-              className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
-                pinjamanDetail.detail.recommendation === "Setuju"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                  : "border-rose-200 bg-rose-50 text-rose-900"
+              className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+                pinjamanDetail.detail.recommendation === "Tolak"
+                  ? "border-amber-200 bg-amber-50 text-amber-950"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-900"
               }`}
             >
-              Rekomendasi otomatis: {pinjamanDetail.detail.recommendation}
+              <div className="font-semibold">
+                Rekomendasi sistem: {pinjamanDetail.detail.recommendation === "Tolak" ? "Tolak (saran)" : "Setuju (saran)"}
+              </div>
+              <p className="mt-1 text-xs font-normal opacity-90">
+                Bukan keputusan otomatis. Admin selalu dapat menyetujui atau menolak manual — termasuk jika saran
+                bertolak dengan kebijakan internal.
+              </p>
             </div>
 
             <dl className="mt-4 grid gap-3 text-sm">
@@ -580,7 +602,7 @@ export default function ApprovalsPage() {
             </dl>
 
             <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-              <div className="font-semibold text-slate-900">Dasar rekomendasi</div>
+              <div className="font-semibold text-slate-900">Catatan untuk admin</div>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {pinjamanDetail.detail.alasan.map((line, i) => (
                   <li key={i}>{line}</li>

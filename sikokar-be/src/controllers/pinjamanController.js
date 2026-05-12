@@ -177,22 +177,22 @@ const createPinjaman = async (req, res) => {
   let reason = "";
 
   const maxPengajuan = maxPengajuanForAnggota(anggota);
+
+  const catatan = [];
+  catatan.push("Pengajuan masuk antrian Approval; keputusan akhir hanya oleh admin (setujui/tolak manual).");
   if (frekuensi >= maxPengajuan) {
-    finalStatus = "ditolak";
-    nominalDisetujui = 0;
-    sisaPokok = 0;
-    angsuranVal = 0;
-    reason = `Ditolak: sudah mencapai maksimal ${maxPengajuan} kali pengajuan pinjaman (batas anggota / jabatan).`;
-  } else {
-    finalStatus = "pending";
-    nominalDisetujui = 0;
-    sisaPokok = 0;
-    angsuranVal = 0;
-    reason =
-      nominalReq <= sisaLimit
-        ? "Menunggu persetujuan di halaman Approval (nominal masih dalam sisa limit plafon)."
-        : "Menunggu persetujuan di halaman Approval (nominal melebihi sisa limit plafon jabatan).";
+    catatan.push(
+      `Frekuensi data pinjaman anggota sudah ${frekuensi} (maks. ${maxPengajuan}): sistem merekomendasikan penolakan, tetapi admin tetap dapat menyetujui jika diperlukan.`
+    );
   }
+  if (nominalReq > sisaLimit) {
+    catatan.push(
+      "Nominal melebihi sisa limit plafon jabatan: sistem merekomendasikan penolakan; admin dapat menolak atau menyetujui secara manual."
+    );
+  } else {
+    catatan.push("Nominal tidak melebihi sisa plafon jabatan (sebelum pengajuan ini).");
+  }
+  reason = catatan.join(" ");
 
   const payload = {
     id,
@@ -271,12 +271,6 @@ const updatePinjaman = async (req, res) => {
   const terpakai = sumUsedLimit(others);
   const plafon = resolveLoanCap(anggota.jabatan);
   const sisaLimit = Math.max(0, plafon - terpakai);
-
-  if (nominalReq > sisaLimit) {
-    return res.status(400).json({
-      message: `Tidak dapat menyetujui: nominal melebihi sisa limit plafon (sisa ${sisaLimit}).`
-    });
-  }
 
   const angsuranVal = computeAngsuranPerBulan(nominalReq, tenorNum, bungaVal);
   const today = new Date().toISOString().slice(0, 10);

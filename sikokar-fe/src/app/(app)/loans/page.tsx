@@ -16,6 +16,18 @@ const resolveLoanCapFromJabatan = (jabatan?: string | null) => {
   return LOAN_CAP_BY_ROLE.staff;
 };
 
+const maxLoansForJabatan = (jabatan: string) => {
+  const j = jabatan.trim().toLowerCase();
+  if (j === "manager" || j.includes("manager")) return 5;
+  return 3;
+};
+
+const resolveMaxPengajuanAnggota = (a: Anggota): number => {
+  const stored = Number(a.max_loans);
+  if (Number.isFinite(stored) && stored > 0) return stored;
+  return maxLoansForJabatan(String(a.jabatan || ""));
+};
+
 const sumUsedLimitForMember = (memberLoans: Pinjaman[]) =>
   memberLoans.reduce((sum, row) => {
     if (row.status === "aktif") {
@@ -99,11 +111,13 @@ export default function LoansPage() {
     const frekuensi = memberLoans.length;
     const terpakai = sumUsedLimitForMember(memberLoans);
     const sisaLimit = Math.max(0, plafon - terpakai);
+    const maxPengajuan = resolveMaxPengajuanAnggota(ag);
     return {
       plafon,
       terpakai,
       sisaLimit,
       frekuensi,
+      maxPengajuan,
       jabatanLabel: ag.jabatan?.trim() || "Staff (default)",
     };
   }, [formState.anggota_id, anggotaList, rows]);
@@ -148,10 +162,14 @@ export default function LoansPage() {
         tgl_pengajuan: formState.tgl_pengajuan || null,
         tgl_cair: formState.tgl_cair || null,
       });
-      const tone: "ok" | "warn" | "err" = res.status === "ditolak" ? "err" : "warn";
+      const reason = res.reason || "";
+      const needsAttention =
+        res.status === "ditolak" ||
+        /melebihi|maks\.|merekomendasikan|Frekuensi data pinjaman/i.test(reason);
+      const tone: "ok" | "warn" | "err" = res.status === "ditolak" ? "err" : needsAttention ? "warn" : "ok";
       setSubmitNotice({
         tone,
-        text: [res.status?.toUpperCase(), res.reason].filter(Boolean).join(" — "),
+        text: [res.status?.toUpperCase(), reason].filter(Boolean).join(" — "),
       });
       setRefreshNonce((n) => n + 1);
       setShowForm(false);
@@ -180,9 +198,9 @@ export default function LoansPage() {
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Pinjaman</div>
         <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Monitoring Pinjaman</h1>
         <p className="text-sm text-slate-500">
-          Plafon per jabatan: Manager Rp50jt, HRD Rp30jt, Staff Rp10jt. Frekuensi pengajuan pinjaman mengikuti master
-          anggota (default: Manager 5×, jabatan lain 3×). Setiap
-          pengajuan yang lolos aturan frekuensi masuk status menunggu dan diproses di halaman Approval.
+          Plafon per jabatan: Manager Rp50jt, HRD Rp30jt, Staff Rp10jt. Frekuensi pengajuan mengikuti master anggota
+          (default Manager 5×, lainnya 3×). Pengajuan selalu masuk status menunggu di Approval; jika plafon atau kuota
+          terlampaui, sistem hanya menambahkan catatan — tidak ada penolakan otomatis dari server.
         </p>
       </div>
 
@@ -268,8 +286,9 @@ export default function LoansPage() {
                   <div>Terpakai (pending + aktif): {formatRupiah(loanPreview.terpakai)}</div>
                   <div>Sisa limit: {formatRupiah(loanPreview.sisaLimit)}</div>
                   <div className="sm:col-span-2">
-                    Frekuensi pengajuan (riwayat): {loanPreview.frekuensi} / 3 — pengajuan berikutnya akan ditolak
-                    otomatis jika sudah 3.
+                    Frekuensi data pinjaman (total): {loanPreview.frekuensi} / {loanPreview.maxPengajuan} — jika
+                    melebihi atau nominal di atas sisa plafon, halaman Approval menampilkan rekomendasi penolakan;
+                    keputusan akhir oleh admin (bukan otomatis).
                   </div>
                 </div>
               </div>
