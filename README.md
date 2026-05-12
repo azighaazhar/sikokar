@@ -14,6 +14,7 @@ Setup ini menjalankan frontend (Next.js), backend (Express), dan database (Maria
    ```
    # sikokar-be/.env
    PORT=3002
+   # DB_HOST=db (docker compose), DB_HOST=localhost (local dev)
    DB_HOST=db
    DB_PORT=3306
    DB_USER=sikokar
@@ -29,6 +30,22 @@ Setup ini menjalankan frontend (Next.js), backend (Express), dan database (Maria
    ```bash
    docker compose up --build
    ```
+
+## Menjalankan Lokal (Backend + DB via Docker)
+1. Salin file env contoh:
+   - `sikokar-be/.env.example` -> `sikokar-be/.env`
+2. Ubah `DB_HOST` jadi `localhost` di `sikokar-be/.env`.
+3. Jalankan DB saja:
+   ```bash
+   docker compose up -d db
+   ```
+4. Masuk ke folder backend dan jalankan:
+   ```bash
+   cd sikokar-be
+   npm install
+   npm run dev
+   ```
+5. Cek health: `http://localhost:3002/health`.
 
 ## Akses Aplikasi
 - Frontend: http://localhost:3000
