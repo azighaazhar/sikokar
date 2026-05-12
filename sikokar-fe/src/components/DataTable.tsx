@@ -11,10 +11,16 @@ export default function DataTable<T>({
   columns,
   rows,
   emptyLabel,
+  onRowClick,
+  getRowKey,
+  isRowClickable,
 }: {
   columns: Column<T>[];
   rows: T[];
   emptyLabel?: string;
+  onRowClick?: (row: T) => void;
+  getRowKey?: (row: T, index: number) => string | number;
+  isRowClickable?: (row: T) => boolean;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -36,15 +42,24 @@ export default function DataTable<T>({
               </td>
             </tr>
           ) : (
-            rows.map((row, index) => (
-              <tr key={index} className="hover:bg-slate-50">
+            rows.map((row, index) => {
+              const clickable = Boolean(onRowClick && (isRowClickable ? isRowClickable(row) : true));
+              return (
+              <tr
+                key={getRowKey ? getRowKey(row, index) : index}
+                onClick={() => {
+                  if (clickable) onRowClick?.(row);
+                }}
+                className={clickable ? "cursor-pointer hover:bg-slate-50" : "hover:bg-slate-50"}
+              >
                 {columns.map((column) => (
                   <td key={column.key} className={`px-4 py-3 ${column.className || ""}`}>
                     {column.render ? column.render(row) : String((row as any)[column.key] ?? "-")}
                   </td>
                 ))}
               </tr>
-            ))
+            );
+            })
           )}
         </tbody>
       </table>
