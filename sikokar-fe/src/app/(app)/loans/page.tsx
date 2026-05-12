@@ -3,7 +3,29 @@
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/DataTable";
 import PanelCard from "@/components/PanelCard";
-import { createPinjaman, listPinjaman, listAnggota, type Pinjaman, type Anggota } from "@/lib/api";
+import { createPinjaman, listPinjaman, listAnggota, type Pinjaman, type Anggota, type CreatePinjamanResult } from "@/lib/api";
+
+const LOAN_CAP_BY_ROLE = { manager: 50_000_000, hrd: 30_000_000, staff: 10_000_000 };
+
+const resolveLoanCapFromJabatan = (jabatan?: string | null) => {
+  const j = String(jabatan || "")
+    .toLowerCase()
+    .trim();
+  if (j === "manager" || j.includes("manager")) return LOAN_CAP_BY_ROLE.manager;
+  if (j === "hrd" || j.includes("hrd") || j.includes("human resource")) return LOAN_CAP_BY_ROLE.hrd;
+  return LOAN_CAP_BY_ROLE.staff;
+};
+
+const sumUsedLimitForMember = (memberLoans: Pinjaman[]) =>
+  memberLoans.reduce((sum, row) => {
+    if (row.status === "aktif") {
+      return sum + Number(row.sisa_pokok || row.nominal_disetujui || row.nominal_pengajuan || 0);
+    }
+    if (row.status === "pending") {
+      return sum + Number(row.nominal_pengajuan || 0);
+    }
+    return sum;
+  }, 0);
 
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
@@ -27,6 +49,9 @@ export default function LoansPage() {
     tgl_cair: "",
   });
 
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [submitNotice, setSubmitNotice] = useState<{ tone: "ok" | "warn" | "err"; text: string } | null>(null);
+
   useEffect(() => {
     let active = true;
 
@@ -34,10 +59,7 @@ export default function LoansPage() {
       setLoading(true);
       setError(null);
       try {
-        const [pinjRes, angRes] = await Promise.all([
-          listPinjaman({ status: statusFilter || undefined }),
-          listAnggota(),
-        ]);
+        const [pinjRes, angRes] = await Promise.all([listPinjaman(), listAnggota()]);
         if (active) {
           setRows(pinjRes.data);
           setAnggotaList(angRes.data);
@@ -61,13 +83,44 @@ export default function LoansPage() {
     return () => {
       active = false;
     };
-  }, [statusFilter]);
+  }, [refreshNonce]);
+
+  const displayRows = useMemo(() => {
+    if (!statusFilter) return rows;
+    return rows.filter((r) => r.status === statusFilter);
+  }, [rows, statusFilter]);
+
+  const loanPreview = useMemo(() => {
+    if (!formState.anggota_id) return null;
+    const ag = anggotaList.find((a) => a.id === formState.anggota_id);
+    if (!ag) return null;
+    const plafon = resolveLoanCapFromJabatan(ag.jabatan);
+    const memberLoans = rows.filter((r) => r.anggota_id === formState.anggota_id);
+    const frekuensi = memberLoans.length;
+    const terpakai = sumUsedLimitForMember(memberLoans);
+    const sisaLimit = Math.max(0, plafon - terpakai);
+    return {
+      plafon,
+      terpakai,
+      sisaLimit,
+      frekuensi,
+      jabatanLabel: ag.jabatan?.trim() || "Staff (default)",
+    };
+  }, [formState.anggota_id, anggotaList, rows]);
 
   const summary = useMemo(() => {
-    const active = rows.filter((row) => row.status !== "lunas");
-    const outstanding = active.reduce((sum, row) => sum + Number(row.sisa_pokok || row.nominal_disetujui || 0), 0);
-    const monthly = active.reduce((sum, row) => sum + Number(row.angsuran_per_bulan || 0), 0);
-    return { outstanding, monthly, activeCount: active.length };
+    const activeLoans = rows.filter((row) => row.status === "aktif" || row.status === "pending");
+    const outstanding = activeLoans.reduce((sum, row) => {
+      if (row.status === "aktif") {
+        return sum + Number(row.sisa_pokok || row.nominal_disetujui || 0);
+      }
+      return sum + Number(row.nominal_pengajuan || 0);
+    }, 0);
+    const monthly = rows
+      .filter((row) => row.status === "aktif")
+      .reduce((sum, row) => sum + Number(row.angsuran_per_bulan || 0), 0);
+    const activeCount = rows.filter((row) => row.status === "aktif").length;
+    return { outstanding, monthly, activeCount };
   }, [rows]);
 
   const estimateAngsuran = useMemo(() => {
@@ -83,7 +136,7 @@ export default function LoansPage() {
     event.preventDefault();
     setSaving(true);
     try {
-      await createPinjaman({
+      const res: CreatePinjamanResult = await createPinjaman({
         id: `P${Date.now()}`,
         no: `PNJ-${Date.now()}`,
         anggota_id: formState.anggota_id,
@@ -94,8 +147,14 @@ export default function LoansPage() {
         angsuran_per_bulan: estimateAngsuran,
         tgl_pengajuan: formState.tgl_pengajuan || null,
         tgl_cair: formState.tgl_cair || null,
-        status: "pending",
       });
+      const tone: "ok" | "warn" | "err" =
+        res.status === "ditolak" ? "err" : res.status === "pending" ? "warn" : "ok";
+      setSubmitNotice({
+        tone,
+        text: [res.status?.toUpperCase(), res.reason].filter(Boolean).join(" — "),
+      });
+      setRefreshNonce((n) => n + 1);
       setShowForm(false);
       setFormState({
         anggota_id: "",
@@ -110,7 +169,7 @@ export default function LoansPage() {
         err && typeof err === "object" && "message" in err
           ? String((err as { message: string }).message)
           : "Gagal mengajukan pinjaman";
-      setError(message);
+      setSubmitNotice({ tone: "err", text: message });
     } finally {
       setSaving(false);
     }
@@ -121,12 +180,37 @@ export default function LoansPage() {
       <div>
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Pinjaman</div>
         <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Monitoring Pinjaman</h1>
-        <p className="text-sm text-slate-500">Kelola pinjaman aktif dan pengajuan.</p>
+        <p className="text-sm text-slate-500">
+          Plafon per jabatan: Manager Rp50jt, HRD Rp30jt, Staff Rp10jt. Maksimal 3× pengajuan per anggota. Aturan:
+          nominal ≤ sisa limit dan frekuensi &lt; 3 → disetujui otomatis (aktif); nominal &gt; sisa limit dan frekuensi
+          &lt; 3 → pending (approval mendesak); frekuensi ≥ 3 → ditolak.
+        </p>
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-          {error}
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</div>
+      )}
+
+      {submitNotice && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            submitNotice.tone === "ok"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : submitNotice.tone === "warn"
+                ? "border-amber-200 bg-amber-50 text-amber-900"
+                : "border-rose-200 bg-rose-50 text-rose-700"
+          }`}
+        >
+          <div className="flex justify-between gap-3">
+            <span>{submitNotice.text}</span>
+            <button
+              type="button"
+              className="shrink-0 font-semibold underline"
+              onClick={() => setSubmitNotice(null)}
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
 
@@ -156,7 +240,7 @@ export default function LoansPage() {
             <option value="pending">Pending</option>
             <option value="aktif">Aktif</option>
             <option value="lunas">Lunas</option>
-            <option value="macet">Macet</option>
+            <option value="ditolak">Ditolak</option>
           </select>
           <button className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white">Search</button>
           <button className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600" onClick={() => setStatusFilter("")}>Reset</button>
@@ -176,6 +260,21 @@ export default function LoansPage() {
       >
         {showForm ? (
           <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-3">
+            {loanPreview && (
+              <div className="md:col-span-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <div className="font-semibold text-slate-900">Ringkasan limit (anggota terpilih)</div>
+                <div className="mt-2 grid gap-1 sm:grid-cols-2">
+                  <div>Jabatan / kelompok plafon: {loanPreview.jabatanLabel}</div>
+                  <div>Plafon: {formatRupiah(loanPreview.plafon)}</div>
+                  <div>Terpakai (pending + aktif): {formatRupiah(loanPreview.terpakai)}</div>
+                  <div>Sisa limit: {formatRupiah(loanPreview.sisaLimit)}</div>
+                  <div className="sm:col-span-2">
+                    Frekuensi pengajuan (riwayat): {loanPreview.frekuensi} / 3 — pengajuan berikutnya akan ditolak
+                    otomatis jika sudah 3.
+                  </div>
+                </div>
+              </div>
+            )}
             <select
               required
               value={formState.anggota_id}
@@ -186,6 +285,7 @@ export default function LoansPage() {
               {anggotaList.map((anggota) => (
                 <option key={anggota.id} value={anggota.id}>
                   {anggota.nama} ({anggota.no})
+                  {anggota.jabatan ? ` — ${anggota.jabatan}` : ""}
                 </option>
               ))}
             </select>
@@ -285,11 +385,20 @@ export default function LoansPage() {
             {
               key: "status",
               label: "Status",
-              render: (row) => (
-                <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-600">
-                  {row.status}
-                </span>
-              ),
+              render: (row) => {
+                const st = row.status;
+                const cls =
+                  st === "aktif"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : st === "pending"
+                      ? "bg-amber-50 text-amber-700"
+                      : st === "ditolak"
+                        ? "bg-rose-50 text-rose-700"
+                        : "bg-slate-50 text-slate-600";
+                return (
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${cls}`}>{st}</span>
+                );
+              },
             },
             {
               key: "aksi",
@@ -303,7 +412,7 @@ export default function LoansPage() {
               ),
             },
           ]}
-          rows={rows}
+          rows={displayRows}
           emptyLabel={loading ? "Loading loans..." : "No loans found"}
         />
       </PanelCard>

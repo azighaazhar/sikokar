@@ -174,8 +174,19 @@ export const createSupplier = (payload: Partial<Supplier> & { id: string; nama: 
     body: JSON.stringify(payload),
   });
 
+export type CreatePinjamanResult = {
+  id: string;
+  no: string;
+  status: string;
+  reason?: string;
+  plafon_jabatan?: number;
+  sisa_limit?: number;
+  terpakai_sebelumnya?: number;
+  frekuensi_sebelumnya?: number;
+};
+
 export const createPinjaman = (payload: Partial<Pinjaman> & { id: string; no: string; anggota_id: string }) =>
-  apiRequest<{ id: string; no: string; status: string }>("/pinjaman", {
+  apiRequest<CreatePinjamanResult>("/pinjaman", {
     method: "POST",
     body: JSON.stringify(payload),
   });
