@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/DataTable";
 import PanelCard from "@/components/PanelCard";
-import { listSimpanan, type Simpanan } from "@/lib/api";
+import { listAnggota, listSimpanan, type Anggota, type Simpanan } from "@/lib/api";
 
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
@@ -12,6 +12,7 @@ const formatRupiah = (value: number) =>
 
 export default function SavingsPage() {
   const [rows, setRows] = useState<Simpanan[]>([]);
+  const [anggotaRows, setAnggotaRows] = useState<Anggota[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -23,9 +24,10 @@ export default function SavingsPage() {
       setLoading(true);
       setError(null);
       try {
-        const response = await listSimpanan();
+        const [simpananRes, anggotaRes] = await Promise.all([listSimpanan(), listAnggota()]);
         if (active) {
-          setRows(response.data);
+          setRows(simpananRes.data);
+          setAnggotaRows(anggotaRes.data);
         }
       } catch (err) {
         if (active) {
@@ -47,6 +49,13 @@ export default function SavingsPage() {
       active = false;
     };
   }, []);
+
+  const anggotaMap = useMemo(() => {
+    return anggotaRows.reduce<Record<string, Anggota>>((acc, row) => {
+      acc[row.id] = row;
+      return acc;
+    }, {});
+  }, [anggotaRows]);
 
   const totals = useMemo(() => {
     const total = rows.reduce((sum, row) => sum + Number(row.saldo || 0), 0);
@@ -82,15 +91,36 @@ export default function SavingsPage() {
     if (!search) {
       return list;
     }
-    return list.filter((row) => row.anggota_id.toLowerCase().includes(search.toLowerCase()));
-  }, [rows, search]);
+    const keyword = search.toLowerCase();
+    return list.filter((row) => {
+      const anggota = anggotaMap[row.anggota_id];
+      const matches = [
+        row.anggota_id,
+        anggota?.no,
+        anggota?.nip,
+        anggota?.nik,
+        anggota?.nama,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword));
+      return matches;
+    });
+  }, [rows, search, anggotaMap]);
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Simpanan</div>
-        <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Simpanan Anggota</h1>
-        <p className="text-sm text-slate-500">Ringkasan simpanan pokok, wajib, dan sukarela.</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Simpanan</div>
+          <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Simpanan Anggota</h1>
+          <p className="text-sm text-slate-500">Ringkasan simpanan pokok, wajib, dan sukarela.</p>
+        </div>
+        <a
+          className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+          href="/savings/transactions"
+        >
+          Transaksi
+        </a>
       </div>
 
       {error && (
@@ -124,12 +154,12 @@ export default function SavingsPage() {
         </div>
       </div>
 
-      <PanelCard title="Pencarian Simpanan" action={<a className="text-xs font-semibold text-indigo-600" href="/savings/transactions">Transaksi</a>}>
+      <PanelCard title="Pencarian Simpanan">
         <div className="flex flex-wrap gap-3">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Cari nama / no / nip (sementara pakai ID anggota)"
+            placeholder="Cari nama / no / nip / nik / id"
             className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
           />
           <button className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white">Search</button>
@@ -140,7 +170,21 @@ export default function SavingsPage() {
       <PanelCard title="List Simpanan">
         <DataTable
           columns={[
-            { key: "anggota_id", label: "Anggota" },
+            {
+              key: "anggota_id",
+              label: "Anggota",
+              render: (row) => {
+                const anggota = anggotaMap[row.anggota_id];
+                return anggota ? (
+                  <div>
+                    <div className="font-semibold text-slate-900">{anggota.nama}</div>
+                    <div className="text-xs text-slate-500">{anggota.id}</div>
+                  </div>
+                ) : (
+                  row.anggota_id
+                );
+              },
+            },
             {
               key: "pokok",
               label: "Pokok",

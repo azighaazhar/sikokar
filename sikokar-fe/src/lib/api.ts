@@ -54,10 +54,23 @@ export const apiRequest = async <T>(path: string, options: RequestOptions = {}) 
     mergedHeaders.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(buildUrl(path), {
-    ...rest,
-    headers: mergedHeaders,
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path), {
+      ...rest,
+      headers: mergedHeaders,
+    });
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message: string }).message)
+        : "Network request failed";
+    const error: ApiError = {
+      message: `Tidak dapat menghubungi server. ${message}. Pastikan API berjalan.`,
+      status: 0,
+    };
+    throw error;
+  }
 
   const payload = await parseJson(response);
 
@@ -118,11 +131,29 @@ export const listCoa = (params?: { tipe?: string; aktif?: string | number }) =>
   apiRequest<{ data: Coa[] }>(withQuery("/coa", params));
 export const listApproval = (params?: { status?: string; modul?: string }) =>
   apiRequest<{ data: Approval[] }>(withQuery("/approval", params));
+export const listSimpananTransaksi = (params?: {
+  anggota_id?: string;
+  jenis?: string;
+  tipe?: string;
+  tgl_from?: string;
+  tgl_to?: string;
+}) => apiRequest<{ data: SimpananTransaksi[] }>(withQuery("/simpanan-transaksi", params));
 
 export const createAnggota = (payload: Partial<Anggota> & { id: string; no: string; nama: string }) =>
   apiRequest<{ id: string; no: string; nama: string }>("/anggota", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+
+export const updateAnggota = (id: string, payload: Partial<Anggota>) =>
+  apiRequest<{ id: string }>(`/anggota/${id}` , {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+export const deleteAnggota = (id: string) =>
+  apiRequest<{ id: string }>(`/anggota/${id}`, {
+    method: "DELETE",
   });
 
 export const createBarang = (payload: Partial<Barang> & { id: string; kode: string; nama: string }) =>
@@ -167,6 +198,14 @@ export const createRentalAsset = (payload: RentalAssetPayload) =>
     body: JSON.stringify(payload),
   });
 
+export const createSimpananTransaksi = (
+  payload: Partial<SimpananTransaksi> & { id: string; anggota_id: string; jenis: string; tipe: string }
+) =>
+  apiRequest<{ id: string; anggota_id: string }>("/simpanan-transaksi", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
 export type Anggota = {
   id: string;
   no: string;
@@ -191,6 +230,18 @@ export type Simpanan = {
   jenis: string;
   saldo: number;
   updated_at?: string | null;
+};
+
+export type SimpananTransaksi = {
+  id: string;
+  anggota_id: string;
+  jenis: string;
+  tipe: string;
+  tgl?: string | null;
+  nominal?: number | null;
+  metode?: string | null;
+  keterangan?: string | null;
+  created_at?: string | null;
 };
 
 export type Pinjaman = {
