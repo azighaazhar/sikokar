@@ -1,0 +1,107 @@
+const express = require("express");
+const { healthCheck, healthCheckDb } = require("../controllers/healthController");
+const { login } = require("../controllers/authController");
+const { createUser, listUsers, getUserById } = require("../controllers/userController");
+const { listAnggota, getAnggotaById, createAnggota } = require("../controllers/anggotaController");
+const { listBarang, getBarangById, createBarang, updateBarang } = require("../controllers/barangController");
+const { listSupplier, getSupplierById, createSupplier } = require("../controllers/supplierController");
+const { listStok, getStokById, createStok } = require("../controllers/stokController");
+const { listLokasi, getLokasiById, createLokasi } = require("../controllers/lokasiController");
+const { listPenjualan, getPenjualanById, createPenjualan } = require("../controllers/penjualanController");
+const { listPinjaman, getPinjamanById, createPinjaman } = require("../controllers/pinjamanController");
+const { listPinjamanBayar, getPinjamanBayarById, createPinjamanBayar } = require("../controllers/pinjamanBayarController");
+const { listSimpanan, getSimpananById, createSimpanan } = require("../controllers/simpananController");
+const { listApproval, getApprovalById, createApproval } = require("../controllers/approvalController");
+const { listJurnal, getJurnalById, createJurnal } = require("../controllers/jurnalController");
+const { listCoa, getCoaById, createCoa } = require("../controllers/coaController");
+const { listSetting, getSettingByKey, upsertSetting } = require("../controllers/settingController");
+const { listPembelian, getPembelianById, createPembelian } = require("../controllers/pembelianController");
+const { listRental, getRentalById, createRental, listRentalAset, getRentalAsetById, createRentalAset } = require("../controllers/rentalController");
+const { listKredit, getKreditById, createKredit, createKreditBayar } = require("../controllers/kreditController");
+const { listSimpananTransaksi, createSimpananTransaksi } = require("../controllers/simpananTransaksiController");
+const { listPpob, createPpob } = require("../controllers/ppobController");
+const { listKolektif, getKolektifById, createKolektif } = require("../controllers/kolektifController");
+const { summaryReport } = require("../controllers/reportController");
+const { requireAuth, requireRole } = require("../middleware/auth");
+const { asyncHandler } = require("../middleware/errorHandler");
+
+const router = express.Router();
+
+router.get("/health", asyncHandler(healthCheck));
+router.get("/health/db", asyncHandler(healthCheckDb));
+router.post("/auth/login", asyncHandler(login));
+router.post("/users", requireAuth, requireRole(["admin"]), asyncHandler(createUser));
+router.get("/users", requireAuth, requireRole(["admin"]), asyncHandler(listUsers));
+router.get("/users/:id", requireAuth, requireRole(["admin"]), asyncHandler(getUserById));
+router.get("/anggota", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(listAnggota));
+router.get("/anggota/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(getAnggotaById));
+router.post("/anggota", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createAnggota));
+router.delete("/anggota/:id", requireAuth, requireRole(["admin"]), asyncHandler(deleteAnggota));
+router.get("/barang", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(listBarang));
+router.get("/barang/:id", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(getBarangById));
+router.post("/barang", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createBarang));
+router.put("/barang/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(updateBarang));
+router.get("/supplier", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(listSupplier));
+router.get("/supplier/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(getSupplierById));
+router.post("/supplier", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createSupplier));
+router.get("/stok", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(listStok));
+router.get("/stok/:id", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(getStokById));
+router.post("/stok", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createStok));
+router.get("/lokasi", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(listLokasi));
+router.get("/lokasi/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(getLokasiById));
+router.post("/lokasi", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createLokasi));
+router.get("/penjualan", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(listPenjualan));
+router.get("/penjualan/:id", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(getPenjualanById));
+router.post("/penjualan", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(createPenjualan));
+router.post("/pos/checkout", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(createPenjualan));
+router.get("/pinjaman", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listPinjaman));
+router.get("/pinjaman/:id", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(getPinjamanById));
+router.post("/pinjaman", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createPinjaman));
+router.get("/pinjaman-bayar", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listPinjamanBayar));
+router.get("/pinjaman-bayar/:id", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(getPinjamanBayarById));
+router.post("/pinjaman-bayar", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createPinjamanBayar));
+router.get("/simpanan", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listSimpanan));
+router.get("/simpanan/:id", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(getSimpananById));
+router.post("/simpanan", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createSimpanan));
+router.get("/approval", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(listApproval));
+router.get("/approval/:id", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(getApprovalById));
+router.post("/approval", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(createApproval));
+router.get("/jurnal", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(listJurnal));
+router.get("/jurnal/:id", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(getJurnalById));
+router.post("/jurnal", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(createJurnal));
+router.get("/coa", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(listCoa));
+router.get("/coa/:id", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(getCoaById));
+router.post("/coa", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(createCoa));
+router.get("/setting", requireAuth, requireRole(["admin"]), asyncHandler(listSetting));
+router.get("/setting/:key", requireAuth, requireRole(["admin"]), asyncHandler(getSettingByKey));
+router.put("/setting/:key", requireAuth, requireRole(["admin"]), asyncHandler(upsertSetting));
+
+router.get("/pembelian", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(listPembelian));
+router.get("/pembelian/:id", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(getPembelianById));
+router.post("/pembelian", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(createPembelian));
+
+router.get("/rental", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(listRentalAset));
+router.get("/rental/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(getRentalAsetById));
+router.post("/rental", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createRentalAset));
+router.get("/rental-booking", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(listRental));
+router.get("/rental-booking/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(getRentalById));
+router.post("/rental-booking", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createRental));
+
+router.get("/kredit", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listKredit));
+router.get("/kredit/:id", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(getKreditById));
+router.post("/kredit", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createKredit));
+router.post("/kredit-bayar", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createKreditBayar));
+
+router.get("/simpanan-transaksi", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listSimpananTransaksi));
+router.post("/simpanan-transaksi", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createSimpananTransaksi));
+
+router.get("/ppob", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(listPpob));
+router.post("/ppob", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(createPpob));
+
+router.get("/kolektif", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(listKolektif));
+router.get("/kolektif/:id", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(getKolektifById));
+router.post("/kolektif", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(createKolektif));
+
+router.get("/reports/summary", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(summaryReport));
+
+module.exports = router;
