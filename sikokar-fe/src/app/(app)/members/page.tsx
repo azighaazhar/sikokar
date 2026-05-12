@@ -20,6 +20,15 @@ import {
 const departments = ["Produksi", "HR", "Finance", "Warehouse", "Engineering"];
 const positions = ["Manager", "Supervisor", "Koordinator", "Staff", "Asisten", "Driver", "Operator"];
 
+/** Max pinjaman aktif: Manager = 5, jabatan lain = 3 (selaras dengan pilihan jabatan di form). */
+const maxLoansForJabatan = (jabatan: string): number => {
+  const j = jabatan.trim().toLowerCase();
+  if (j === "manager" || j.includes("manager")) return 5;
+  return 3;
+};
+
+const maxLoansStringForJabatan = (jabatan: string) => String(maxLoansForJabatan(jabatan));
+
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 
@@ -152,7 +161,7 @@ export default function MembersPage() {
         limit_kredit: formState.limit_kredit ? Number(formState.limit_kredit) : undefined,
         limit_pinjaman: formState.limit_pinjaman ? Number(formState.limit_pinjaman) : undefined,
         limit_darurat: formState.limit_darurat ? Number(formState.limit_darurat) : undefined,
-        max_loans: formState.max_loans ? Number(formState.max_loans) : undefined,
+        max_loans: formState.max_loans !== "" ? Number(formState.max_loans) : maxLoansForJabatan(formState.jabatan),
         status: formState.status === "1" ? 1 : 0,
       });
       setShowForm(false);
@@ -199,7 +208,7 @@ export default function MembersPage() {
       limit_kredit: row.limit_kredit ? String(row.limit_kredit) : "",
       limit_pinjaman: row.limit_pinjaman ? String(row.limit_pinjaman) : "",
       limit_darurat: row.limit_darurat ? String(row.limit_darurat) : "",
-      max_loans: row.max_loans ? String(row.max_loans) : "",
+      max_loans: maxLoansStringForJabatan(row.jabatan || ""),
       status: row.status === 0 || row.status === "0" ? "0" : "1",
     });
     setShowEditForm(true);
@@ -230,7 +239,7 @@ export default function MembersPage() {
         limit_kredit: editState.limit_kredit ? Number(editState.limit_kredit) : undefined,
         limit_pinjaman: editState.limit_pinjaman ? Number(editState.limit_pinjaman) : undefined,
         limit_darurat: editState.limit_darurat ? Number(editState.limit_darurat) : undefined,
-        max_loans: editState.max_loans ? Number(editState.max_loans) : undefined,
+        max_loans: editState.max_loans !== "" ? Number(editState.max_loans) : maxLoansForJabatan(editState.jabatan),
         status: editState.status === "1" ? 1 : 0,
       });
       setShowEditForm(false);
@@ -385,7 +394,14 @@ export default function MembersPage() {
             </select>
             <select
               value={formState.jabatan}
-              onChange={(event) => setFormState({ ...formState, jabatan: event.target.value })}
+              onChange={(event) => {
+                const jabatan = event.target.value;
+                setFormState({
+                  ...formState,
+                  jabatan,
+                  max_loans: maxLoansStringForJabatan(jabatan),
+                });
+              }}
               className="rounded-xl border border-slate-200 px-3 py-3 text-sm"
             >
               <option value="">Pilih Jabatan</option>
@@ -516,7 +532,14 @@ export default function MembersPage() {
             </select>
             <input
               value={editState.jabatan}
-              onChange={(event) => setEditState({ ...editState, jabatan: event.target.value })}
+              onChange={(event) => {
+                const jabatan = event.target.value;
+                setEditState({
+                  ...editState,
+                  jabatan,
+                  max_loans: maxLoansStringForJabatan(jabatan),
+                });
+              }}
               placeholder="Jabatan"
               className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
             />
