@@ -1,10 +1,7 @@
-version: "3.9"
-
 services:
   api:
     build:
       context: ./sikokar-be
-    container_name: sikokar-api
     ports:
       - "3002:3002"
     env_file:
@@ -20,7 +17,6 @@ services:
       context: ./sikokar-fe
       args:
         NEXT_PUBLIC_API_BASE_URL: http://localhost:3002
-    container_name: sikokar-web
     ports:
       - "3000:3000"
     environment:
@@ -30,7 +26,6 @@ services:
 
   db:
     image: mariadb:10.4
-    container_name: sikokar-db
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: db_sikokar
