@@ -180,7 +180,8 @@ export default function LoansPage() {
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Pinjaman</div>
         <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Monitoring Pinjaman</h1>
         <p className="text-sm text-slate-500">
-          Plafon per jabatan: Manager Rp50jt, HRD Rp30jt, Staff Rp10jt. Maksimal 3× pengajuan per anggota. Setiap
+          Plafon per jabatan: Manager Rp50jt, HRD Rp30jt, Staff Rp10jt. Frekuensi pengajuan pinjaman mengikuti master
+          anggota (default: Manager 5×, jabatan lain 3×). Setiap
           pengajuan yang lolos aturan frekuensi masuk status menunggu dan diproses di halaman Approval.
         </p>
       </div>

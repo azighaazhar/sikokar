@@ -138,9 +138,11 @@ const createAnggota = async (req, res) => {
     return res.status(409).json({ message: "Anggota no already exists" });
   }
 
-  // Default max loans berdasarkan jabatan
-  const defaultMaxLoans =
-    jabatan && jabatan.toLowerCase() === "manager" ? 5 : 3;
+  // Default max loans berdasarkan jabatan (selaras pinjamanController / FE anggota)
+  const jNorm = String(jabatan || "")
+    .toLowerCase()
+    .trim();
+  const defaultMaxLoans = jNorm === "manager" || jNorm.includes("manager") ? 5 : 3;
 
   const payload = {
     id,

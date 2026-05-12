@@ -17,9 +17,20 @@ import {
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 
-const MAX_PENGAJUAN = 3;
-
 const LOAN_CAP_BY_ROLE = { manager: 50_000_000, hrd: 30_000_000, staff: 10_000_000 };
+
+/** Maks. data pinjaman per anggota: master `max_loans`, atau default dari jabatan (Manager 5, lainnya 3). */
+const maxLoansForJabatan = (jabatan: string) => {
+  const j = jabatan.trim().toLowerCase();
+  if (j === "manager" || j.includes("manager")) return 5;
+  return 3;
+};
+
+const resolveMaxPengajuanAnggota = (a: Anggota): number => {
+  const stored = Number(a.max_loans);
+  if (Number.isFinite(stored) && stored > 0) return stored;
+  return maxLoansForJabatan(String(a.jabatan || ""));
+};
 
 const resolveLoanCapFromJabatan = (jabatan?: string | null) => {
   const j = String(jabatan || "")
@@ -48,6 +59,7 @@ type PinjamanApprovalDetail = {
   nominalPengajuan: number;
   totalPinjamanSetelahSetuju: number;
   jumlahPinjamanAnggota: number;
+  maxPengajuanAnggota: number;
   sisaBatasPengajuan: number;
   limitKreditAnggota: number;
   terpakaiKredit: number;
@@ -77,7 +89,8 @@ const computePinjamanApprovalDetail = (
 
   const pinjamanAnggota = allPinjaman.filter((p) => p.anggota_id === loan.anggota_id);
   const jumlahPinjamanAnggota = pinjamanAnggota.length;
-  const sisaBatasPengajuan = Math.max(0, MAX_PENGAJUAN - jumlahPinjamanAnggota);
+  const maxPengajuanAnggota = resolveMaxPengajuanAnggota(anggota);
+  const sisaBatasPengajuan = Math.max(0, maxPengajuanAnggota - jumlahPinjamanAnggota);
   const kuotaPengajuanHabis = sisaBatasPengajuan <= 0;
 
   const limitKreditAnggota = Number(anggota.limit_kredit ?? 0) || 0;
@@ -106,7 +119,7 @@ const computePinjamanApprovalDetail = (
   } else if (kuotaPengajuanHabis) {
     recommendation = "Setuju";
     alasan.push(
-      "Batas frekuensi entri pinjaman (3× per anggota) terlihat penuh, namun sisa limit pinjaman masih mencukupi nominal ini — rekomendasi tetap Setuju."
+      `Batas frekuensi entri pinjaman (${maxPengajuanAnggota}× sesuai jabatan/master anggota) terlihat penuh, namun sisa limit pinjaman masih mencukupi nominal ini — rekomendasi tetap Setuju.`
     );
   } else {
     recommendation = "Setuju";
@@ -120,6 +133,7 @@ const computePinjamanApprovalDetail = (
     nominalPengajuan,
     totalPinjamanSetelahSetuju,
     jumlahPinjamanAnggota,
+    maxPengajuanAnggota,
     sisaBatasPengajuan,
     limitKreditAnggota,
     terpakaiKredit,
@@ -525,11 +539,18 @@ export default function ApprovalsPage() {
                 <dd className="text-right">{formatRupiah(pinjamanDetail.detail.totalPinjamanSetelahSetuju)}</dd>
               </div>
               <div className="flex justify-between gap-4 border-b border-slate-100 pb-2">
-                <dt className="text-slate-500">Jumlah data pinjaman anggota</dt>
-                <dd className="text-right">{pinjamanDetail.detail.jumlahPinjamanAnggota}</dd>
+                <dt className="text-slate-500">
+                  Jumlah data pinjaman anggota
+                  <span className="mt-0.5 block text-xs font-normal text-slate-400">
+                    Maks. dari master anggota, atau default jabatan (Manager 5×, lainnya 3×).
+                  </span>
+                </dt>
+                <dd className="text-right font-semibold text-slate-900">
+                  {pinjamanDetail.detail.jumlahPinjamanAnggota} / {pinjamanDetail.detail.maxPengajuanAnggota}
+                </dd>
               </div>
               <div className="flex justify-between gap-4 border-b border-slate-100 pb-2">
-                <dt className="text-slate-500">Sisa batas pengajuan (maks. {MAX_PENGAJUAN}×)</dt>
+                <dt className="text-slate-500">Sisa slot pengajuan</dt>
                 <dd className="text-right font-semibold">{pinjamanDetail.detail.sisaBatasPengajuan}</dd>
               </div>
               <div className="flex justify-between gap-4 border-b border-slate-100 pb-2">

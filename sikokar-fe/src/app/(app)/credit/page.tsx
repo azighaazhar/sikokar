@@ -41,7 +41,6 @@ export default function CreditPage() {
     tgl_mulai: "",
     harga_beli: "",
     dp: "",
-    pokok: "",
     bunga_pct: "1.5",
     tenor: "12",
     catatan: "",
@@ -133,23 +132,19 @@ export default function CreditPage() {
     return { id: exact[0].id };
   };
 
-  const handleDpChange = (raw: string) => {
-    const dpNum = Number(raw.replace(/\D/g, "")) || 0;
-    const half = Math.round(dpNum / 2);
-    setFormState((prev) => ({
-      ...prev,
-      dp: raw,
-      pokok: raw === "" ? "" : String(half),
-    }));
-  };
+  const pokokOtomatis = useMemo(() => {
+    const h = Number(formState.harga_beli) || 0;
+    const d = Number(formState.dp) || 0;
+    return Math.max(0, h - d);
+  }, [formState.harga_beli, formState.dp]);
 
   const previewAngsuran = useMemo(() => {
     return computeAngsuran(
-      Number(formState.pokok || 0),
+      pokokOtomatis,
       Number(formState.tenor || 0) || 1,
       Number(formState.bunga_pct || 0)
     );
-  }, [formState.pokok, formState.tenor, formState.bunga_pct]);
+  }, [pokokOtomatis, formState.tenor, formState.bunga_pct]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -174,7 +169,7 @@ export default function CreditPage() {
         tgl_mulai: formState.tgl_mulai || null,
         harga_beli: formState.harga_beli ? Number(formState.harga_beli) : 0,
         dp: formState.dp ? Number(formState.dp) : 0,
-        pokok: formState.pokok ? Number(formState.pokok) : 0,
+        pokok: pokokOtomatis,
         bunga_pct: formState.bunga_pct ? Number(formState.bunga_pct) : 0,
         tenor: formState.tenor ? Number(formState.tenor) : 0,
         catatan: formState.catatan || null,
@@ -188,7 +183,6 @@ export default function CreditPage() {
         tgl_mulai: "",
         harga_beli: "",
         dp: "",
-        pokok: "",
         bunga_pct: "1.5",
         tenor: "12",
         catatan: "",
@@ -361,7 +355,7 @@ export default function CreditPage() {
               />
               <input
                 value={formState.dp}
-                onChange={(e) => handleDpChange(e.target.value)}
+                onChange={(e) => setFormState({ ...formState, dp: e.target.value })}
                 placeholder="DP"
                 type="number"
                 min={0}
@@ -369,8 +363,8 @@ export default function CreditPage() {
               />
               <input
                 readOnly
-                value={formState.pokok}
-                placeholder="Pinjaman pokok (otomatis ½ DP)"
+                value={pokokOtomatis}
+                placeholder="Pokok (harga beli − DP)"
                 type="number"
                 className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
               />

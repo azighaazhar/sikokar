@@ -125,7 +125,10 @@ export default function SuppliersPage() {
   };
 
   const startEdit = (row: Supplier) => {
-    setEditingSupplier(row);
+    setEditingSupplier({
+      ...row,
+      is_pkp: Boolean(row.is_pkp),
+    });
     setEditForm({
       kode: row.kode || "",
       nama: row.nama || "",
@@ -221,7 +224,7 @@ export default function SuppliersPage() {
               jenis: editForm.jenis,
               aktif: editForm.aktif === "1" ? 1 : 0,
               npwp: editForm.npwp || null,
-              is_pkp: editForm.is_pkp ? 1 : 0,
+              is_pkp: Boolean(editForm.is_pkp),
               alamat: editForm.alamat || null,
               telp: editForm.telp || null,
             }
@@ -273,7 +276,7 @@ export default function SuppliersPage() {
   };
 
   const unlinkBarang = async (barangId: string) => {
-    if (!window.confirm("Lepas barang ini dari supplier? (Barang tetap ada di master, supplier dikosongkan.)")) return;
+    if (!window.confirm("Hapus barang dari daftar supplier ini? Barang tetap ada di master; hanya tautan supplier yang dihapus.")) return;
     setRowSavingId(barangId);
     setError(null);
     try {
@@ -284,7 +287,7 @@ export default function SuppliersPage() {
       const message =
         err && typeof err === "object" && "message" in err
           ? String((err as { message: string }).message)
-          : "Gagal melepas barang";
+          : "Gagal menghapus barang dari daftar";
       setError(message);
     } finally {
       setRowSavingId(null);
@@ -525,7 +528,7 @@ export default function SuppliersPage() {
           <div className="mt-8 border-t border-slate-200 pt-6">
             <h3 className="text-sm font-semibold text-slate-900">Barang milik supplier</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Ubah detail lalu simpan per baris, tambah barang baru, atau lepas dari supplier.
+              Ubah detail lalu simpan per baris, tambah barang baru, atau hapus dari daftar supplier.
             </p>
 
             {editBarangLoading ? (
@@ -628,7 +631,7 @@ export default function SuppliersPage() {
                               onClick={() => void unlinkBarang(b.id)}
                               className="rounded-lg border border-rose-200 px-2 py-1 text-xs font-semibold text-rose-700 disabled:opacity-50"
                             >
-                              Lepas
+                              Hapus dari daftar
                             </button>
                           </div>
                         </td>

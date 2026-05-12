@@ -7,7 +7,20 @@ const LOAN_CAP_BY_ROLE = {
   staff: 10_000_000,
 };
 
-const MAX_PENGAJUAN = 3;
+/** Default maks. data pinjaman per anggota (selaras master anggota / FE). */
+const maxLoansFromJabatan = (jabatan) => {
+  const j = String(jabatan || "")
+    .toLowerCase()
+    .trim();
+  if (j === "manager" || j.includes("manager")) return 5;
+  return 3;
+};
+
+const maxPengajuanForAnggota = (anggota) => {
+  const stored = Number(anggota.max_loans);
+  if (Number.isFinite(stored) && stored > 0) return stored;
+  return maxLoansFromJabatan(anggota.jabatan);
+};
 
 const resolveLoanCap = (jabatan) => {
   const j = String(jabatan || "")
@@ -163,12 +176,13 @@ const createPinjaman = async (req, res) => {
   let angsuranVal = 0;
   let reason = "";
 
-  if (frekuensi >= MAX_PENGAJUAN) {
+  const maxPengajuan = maxPengajuanForAnggota(anggota);
+  if (frekuensi >= maxPengajuan) {
     finalStatus = "ditolak";
     nominalDisetujui = 0;
     sisaPokok = 0;
     angsuranVal = 0;
-    reason = "Ditolak: sudah mencapai maksimal 3 kali pengajuan pinjaman.";
+    reason = `Ditolak: sudah mencapai maksimal ${maxPengajuan} kali pengajuan pinjaman (batas anggota / jabatan).`;
   } else {
     finalStatus = "pending";
     nominalDisetujui = 0;

@@ -427,6 +427,7 @@ export type Barang = {
   id: string;
   kode: string;
   nama: string;
+  barcode?: string | null;
   kategori?: string | null;
   satuan?: string | null;
   harga_beli?: number | null;
