@@ -15,6 +15,7 @@ type PurchaseRow = {
 };
 
 type PurchaseItem = {
+  lineId: string;
   barang_id: string;
   barang_nama: string;
   qty: string;
@@ -75,6 +76,7 @@ export default function PurchasesPage() {
     setPurchaseItems([
       ...purchaseItems,
       {
+        lineId: `L${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         barang_id: selectedBarang,
         barang_nama: barang.nama,
         qty: selectedQty,
@@ -88,8 +90,8 @@ export default function PurchasesPage() {
     setError(null);
   };
 
-  const handleRemoveBarang = (index: number) => {
-    setPurchaseItems(purchaseItems.filter((_, i) => i !== index));
+  const handleRemoveBarang = (lineId: string) => {
+    setPurchaseItems(purchaseItems.filter((item) => item.lineId !== lineId));
   };
 
   const totalPembelian = purchaseItems.reduce(
@@ -116,6 +118,7 @@ export default function PurchasesPage() {
         total: totalPembelian,
         items: purchaseItems.map((item) => ({
           barang_id: item.barang_id,
+          nama: item.barang_nama,
           qty: Number(item.qty),
           harga_beli: Number(item.harga_beli),
           subtotal: Number(item.qty) * Number(item.harga_beli),
@@ -285,10 +288,10 @@ export default function PurchasesPage() {
                       {
                         key: "aksi",
                         label: "Aksi",
-                        render: (_: any, index: number) => (
+                        render: (item: PurchaseItem) => (
                           <button
                             type="button"
-                            onClick={() => handleRemoveBarang(index)}
+                            onClick={() => handleRemoveBarang(item.lineId)}
                             className="text-xs font-semibold text-rose-600"
                           >
                             Hapus

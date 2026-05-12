@@ -171,11 +171,11 @@ export default function LoansPage() {
             className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
           >
             {showForm ? "Tutup Form" : "Ajukan Pinjaman"}
-          </{error && (
-              <div className="md:col-span-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-                {error}
-              </div>
-            )}
+          </button>
+        }
+      >
+        {showForm ? (
+          <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-3">
             <select
               required
               value={formState.anggota_id}
@@ -201,12 +201,6 @@ export default function LoansPage() {
               required
               value={formState.nominal_pengajuan}
               onChange={(event) => setFormState({ ...formState, nominal_pengajuan: event.target.value })}
-              placeholder="Nominal (Rp)"
-              type="number"
-              className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
-            />
-            <input
-              requiredange={(event) => setFormState({ ...formState, nominal_pengajuan: event.target.value })}
               placeholder="Nominal (Rp)"
               type="number"
               className="rounded-xl border border-slate-200 px-4 py-3 text-sm"

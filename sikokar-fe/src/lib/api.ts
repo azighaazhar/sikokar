@@ -198,6 +198,88 @@ export const createRentalAsset = (payload: RentalAssetPayload) =>
     body: JSON.stringify(payload),
   });
 
+export type RentalAset = {
+  id: string;
+  kode: string;
+  nama: string;
+  kategori?: string | null;
+  tarif_harian?: number | null;
+  tarif_bulanan?: number | null;
+  kapasitas?: number | null;
+  nopol?: string | null;
+  status?: string | null;
+};
+
+export const listRentalAsset = () => apiRequest<{ data: RentalAset[] }>("/rental");
+
+export type RentalBookingPayload = {
+  id: string;
+  no: string;
+  tgl_mulai: string;
+  tgl_selesai?: string | null;
+  aset_id?: string | null;
+  kategori?: string | null;
+  tipe_harga?: string;
+  tarif_custom?: number | null;
+  total?: number;
+  status?: string;
+  tipe_penyewa?: string | null;
+  nama_penyewa?: string | null;
+  nama_perusahaan?: string | null;
+  no_hp?: string | null;
+  keterangan?: string | null;
+};
+
+export const createRental = (payload: RentalBookingPayload) =>
+  apiRequest<{ id: string; no: string; status: string }>("/rental-booking", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export type Pembelian = {
+  id: string;
+  no: string;
+  tgl: string;
+  supplier_id?: string | null;
+  lokasi_id?: string | null;
+  status?: string;
+  total?: number | null;
+};
+
+export type PembelianItemInput = {
+  id?: string;
+  barang_id?: string | null;
+  nama?: string | null;
+  qty?: number;
+  harga_beli?: number;
+  subtotal?: number;
+};
+
+export const listPembelian = (params?: {
+  no?: string;
+  tgl_from?: string;
+  tgl_to?: string;
+  supplier_id?: string;
+  lokasi_id?: string;
+  status?: string;
+}) => apiRequest<{ data: Pembelian[] }>(withQuery("/pembelian", params));
+
+export const createPembelian = (payload: {
+  id: string;
+  no: string;
+  tgl: string;
+  supplier_id?: string | null;
+  lokasi_id?: string | null;
+  status?: string;
+  catatan?: string | null;
+  total?: number;
+  items: PembelianItemInput[];
+}) =>
+  apiRequest<{ id: string; no: string; total?: number }>("/pembelian", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
 export const createSimpananTransaksi = (
   payload: Partial<SimpananTransaksi> & { id: string; anggota_id: string; jenis: string; tipe: string }
 ) =>

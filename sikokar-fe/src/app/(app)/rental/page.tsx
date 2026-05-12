@@ -65,17 +65,14 @@ export default function RentalPage() {
     try {
       const res = await listRentalAsset();
       setAsetList(res.data);
-    } catch {
-      setAsetList([]);
-      loadAset();
+      setAssetError(null);
     } catch (err) {
+      setAsetList([]);
       const message =
         err && typeof err === "object" && "message" in err
           ? String((err as { message: string }).message)
-          : "Gagal menyimpan aset";
+          : "Gagal memuat aset";
       setAssetError(message);
-    } finally {
-      setSavingAsset(false);
     }
   };
 
@@ -106,6 +103,7 @@ export default function RentalPage() {
         tgl_mulai: bookingForm.tgl_mulai,
         tgl_selesai: bookingForm.tgl_selesai,
         aset_id: bookingForm.aset_id,
+        kategori: selectedAset.kategori || null,
         tipe_harga: bookingForm.tipe_harga,
         tarif_custom: bookingForm.tipe_harga === "custom" ? Number(bookingForm.tarif_custom) : null,
         total: tarif,
@@ -128,7 +126,77 @@ export default function RentalPage() {
         no_hp: "",
       });
       setShowBooking(false);
-    } catchform onSubmit={handleBookingSubmit} className="space-y-4">
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Gagal menyimpan booking";
+      setBookingError(message);
+    } finally {
+      setSavingBooking(false);
+    }
+  };
+
+  const handleAssetSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSavingAsset(true);
+    setAssetError(null);
+    try {
+      await createRentalAsset({
+        id: `RA${Date.now()}`,
+        kode: assetForm.kode,
+        nama: assetForm.nama,
+        kategori: assetForm.kategori || null,
+        tarif_harian: assetForm.tarif_harian ? Number(assetForm.tarif_harian) : null,
+        tarif_bulanan: assetForm.tarif_bulanan ? Number(assetForm.tarif_bulanan) : null,
+        kapasitas: assetForm.kapasitas ? Number(assetForm.kapasitas) : null,
+        nopol: assetForm.nopol || null,
+        status: assetForm.status,
+      });
+      setAssetForm({
+        kode: "",
+        nama: "",
+        kategori: "",
+        tarif_harian: "",
+        tarif_bulanan: "",
+        kapasitas: "",
+        nopol: "",
+        status: "tersedia",
+      });
+      setShowAsset(false);
+      await loadAset();
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Gagal menyimpan aset";
+      setAssetError(message);
+    } finally {
+      setSavingAsset(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Pengelolaan Aset</div>
+        <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Pengelolaan Aset</h1>
+        <p className="text-sm text-slate-500">Kelola data aset dan booking.</p>
+      </div>
+
+      <PanelCard
+        title="Booking Rental"
+        action={
+          <button
+            onClick={() => setShowBooking((prev) => !prev)}
+            className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+          >
+            {showBooking ? "Tutup Form" : "Booking"}
+          </button>
+        }
+      >
+        {showBooking ? (
+          <form onSubmit={handleBookingSubmit} className="space-y-4">
             {bookingError && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
                 {bookingError}
@@ -225,68 +293,7 @@ export default function RentalPage() {
                 {savingBooking ? "Menyimpan..." : "Simpan Booking"}
               </button>
             </div>
-          </formarian: "",
-        tarif_bulanan: "",
-        kapasitas: "",
-        nopol: "",
-        status: "tersedia",
-      });
-      setShowAsset(false);
-    } catch (err) {
-      const message =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message: string }).message)
-          : "Gagal menyimpan aset";
-      setAssetError(message);
-    } finally {
-      setSavingAsset(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Pengelolaan Aset</div>
-        <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Pengelolaan Aset</h1>
-        <p className="text-sm text-slate-500">Kelola data aset dan booking.</p>
-      </div>
-
-      <PanelCard
-        title="Booking Rental"
-        action={
-          <button
-            onClick={() => setShowBooking((prev) => !prev)}
-            className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
-          >
-            {showBooking ? "Tutup Form" : "Booking"}
-          </button>
-        }
-      >
-        {showBooking ? (
-          <div className="grid gap-3 md:grid-cols-3">
-            <input placeholder="Pilih aset" className="rounded-xl border border-slate-200 px-4 py-3 text-sm" />
-            <input type="date" className="rounded-xl border border-slate-200 px-4 py-3 text-sm" />
-            <input type="date" className="rounded-xl border border-slate-200 px-4 py-3 text-sm" />
-            <select className="rounded-xl border border-slate-200 px-3 py-3 text-sm">
-              <option>Harian</option>
-              <option>Bulanan</option>
-              <option>Custom</option>
-            </select>
-            <input placeholder="Tarif custom" className="rounded-xl border border-slate-200 px-4 py-3 text-sm" />
-            <select className="rounded-xl border border-slate-200 px-3 py-3 text-sm">
-              <option>Umum</option>
-              <option>Karyawan/Anggota</option>
-              <option>Perusahaan</option>
-            </select>
-            <input placeholder="Nama penyewa" className="rounded-xl border border-slate-200 px-4 py-3 text-sm" />
-            <input placeholder="Nama perusahaan" className="rounded-xl border border-slate-200 px-4 py-3 text-sm" />
-            <input placeholder="No HP" className="rounded-xl border border-slate-200 px-4 py-3 text-sm" />
-            <input placeholder="Keperluan / Keterangan" className="rounded-xl border border-slate-200 px-4 py-3 text-sm md:col-span-3" />
-            <div className="md:col-span-3 flex justify-end gap-2">
-              <button className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600">Batal</button>
-              <button className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white">Simpan Booking</button>
-            </div>
-          </div>
+          </form>
         ) : (
           <div className="text-sm text-slate-500">Klik "Booking" untuk membuka form.</div>
         )}
