@@ -138,6 +138,10 @@ const createAnggota = async (req, res) => {
     return res.status(409).json({ message: "Anggota no already exists" });
   }
 
+  // Default max loans berdasarkan jabatan
+  const defaultMaxLoans =
+    jabatan && jabatan.toLowerCase() === "manager" ? 5 : 3;
+
   const payload = {
     id,
     no,
@@ -151,14 +155,18 @@ const createAnggota = async (req, res) => {
     limit_kredit: limit_kredit || 3000000,
     limit_pinjaman: limit_pinjaman || 20000000,
     limit_darurat: limit_darurat || 5000000,
-    max_loans: max_loans || 5,
+    max_loans: max_loans || defaultMaxLoans,
     status: status === undefined ? 1 : status,
     tgl_masuk: tgl_masuk || null
   };
 
   await db("anggota").insert(payload);
 
-  return res.status(201).json({ id: payload.id, no: payload.no, nama: payload.nama });
+  return res.status(201).json({
+    id: payload.id,
+    no: payload.no,
+    nama: payload.nama
+  });
 };
 
 module.exports = { listAnggota, getAnggotaById, createAnggota, updateAnggota, deleteAnggota };
