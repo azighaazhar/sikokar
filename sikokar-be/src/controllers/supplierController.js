@@ -82,4 +82,36 @@ const createSupplier = async (req, res) => {
   return res.status(201).json({ id: payload.id, kode: payload.kode, nama: payload.nama });
 };
 
-module.exports = { listSupplier, getSupplierById, createSupplier };
+const updateSupplier = async (req, res) => {
+  const { id } = req.params || {};
+  const { kode, nama, jenis, is_pkp, npwp, alamat, telp, aktif } = req.body || {};
+
+  const row = await db("supplier").where({ id }).first();
+  if (!row) {
+    return res.status(404).json({ message: "Supplier not found" });
+  }
+
+  if (kode !== undefined && kode !== null && String(kode) !== String(row.kode || "")) {
+    const kodeExists = await db("supplier").where({ kode }).whereNot({ id }).first();
+    if (kodeExists) {
+      return res.status(409).json({ message: "Supplier kode already exists" });
+    }
+  }
+
+  const payload = {
+    kode: kode !== undefined ? kode || null : row.kode,
+    nama: nama !== undefined ? nama : row.nama,
+    jenis: jenis !== undefined ? jenis || "regular" : row.jenis,
+    is_pkp: is_pkp === undefined ? row.is_pkp : is_pkp ? 1 : 0,
+    npwp: npwp !== undefined ? npwp || null : row.npwp,
+    alamat: alamat !== undefined ? alamat || null : row.alamat,
+    telp: telp !== undefined ? telp || null : row.telp,
+    aktif: aktif === undefined ? row.aktif : Number(aktif)
+  };
+
+  await db("supplier").where({ id }).update(payload);
+
+  return res.json({ id, kode: payload.kode, nama: payload.nama });
+};
+
+module.exports = { listSupplier, getSupplierById, createSupplier, updateSupplier };

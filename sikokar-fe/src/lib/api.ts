@@ -118,7 +118,7 @@ export const listSimpanan = (params?: { anggota_id?: string; jenis?: string }) =
   apiRequest<{ data: Simpanan[] }>(withQuery("/simpanan", params));
 export const listPinjaman = (params?: { status?: string; anggota_id?: string }) =>
   apiRequest<{ data: Pinjaman[] }>(withQuery("/pinjaman", params));
-export const listBarang = (params?: { q?: string; kategori?: string }) =>
+export const listBarang = (params?: { q?: string; kategori?: string; supplier_id?: string }) =>
   apiRequest<{ data: Barang[] }>(withQuery("/barang", params));
 export const listPenjualan = (params?: { jenis?: string; anggota_id?: string }) =>
   apiRequest<{ data: Penjualan[] }>(withQuery("/penjualan", params));
@@ -169,8 +169,14 @@ export const updateBarang = (id: string, payload: Partial<Barang>) =>
   });
 
 export const createSupplier = (payload: Partial<Supplier> & { id: string; nama: string }) =>
-  apiRequest<{ id: string; nama: string }>("/supplier", {
+  apiRequest<{ id: string; nama: string; kode?: string | null }>("/supplier", {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const updateSupplier = (id: string, payload: Partial<Supplier>) =>
+  apiRequest<{ id: string; kode?: string | null; nama: string }>(`/supplier/${id}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 

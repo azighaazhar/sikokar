@@ -4,7 +4,7 @@ const { login } = require("../controllers/authController");
 const { createUser, listUsers, getUserById } = require("../controllers/userController");
 const { listAnggota, getAnggotaById, createAnggota, updateAnggota, deleteAnggota } = require("../controllers/anggotaController");
 const { listBarang, getBarangById, createBarang, updateBarang } = require("../controllers/barangController");
-const { listSupplier, getSupplierById, createSupplier } = require("../controllers/supplierController");
+const { listSupplier, getSupplierById, createSupplier, updateSupplier } = require("../controllers/supplierController");
 const { listStok, getStokById, createStok } = require("../controllers/stokController");
 const { listLokasi, getLokasiById, createLokasi } = require("../controllers/lokasiController");
 const { listPenjualan, getPenjualanById, createPenjualan } = require("../controllers/penjualanController");
@@ -45,6 +45,7 @@ router.put("/barang/:id", requireAuth, requireRole(["admin", "pengurus"]), async
 router.get("/supplier", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(listSupplier));
 router.get("/supplier/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(getSupplierById));
 router.post("/supplier", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createSupplier));
+router.put("/supplier/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(updateSupplier));
 router.get("/stok", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(listStok));
 router.get("/stok/:id", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(getStokById));
 router.post("/stok", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createStok));

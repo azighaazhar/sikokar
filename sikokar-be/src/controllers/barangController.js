@@ -17,11 +17,15 @@ const barangSelectFields = [
 ];
 
 const listBarang = async (req, res) => {
-  const { q, kategori } = req.query || {};
+  const { q, kategori, supplier_id } = req.query || {};
   const query = db("barang").select(barangSelectFields).orderBy("created_at", "desc");
 
   if (kategori) {
     query.where({ kategori });
+  }
+
+  if (supplier_id) {
+    query.where({ supplier_id });
   }
 
   if (q) {
