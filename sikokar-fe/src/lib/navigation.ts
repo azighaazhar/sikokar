@@ -54,6 +54,7 @@ const simpinNav: NavItem[] = [
 const accountingNav: NavItem[] = [
   { label: "Chart of Account", href: "/coa" },
   { label: "Pembukuan", href: "/ledger" },
+  { label: "Approval", href: "/approvals" },
   { label: "Laporan dan Analisis", href: "/reports" },
   { label: "Laporan Konsolidasi", href: "/reports/consolidated" },
   { label: "Pengaturan", href: "/settings" },

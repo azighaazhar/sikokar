@@ -1,5 +1,14 @@
 const { db } = require("../services/db");
 
+const computeAngsuranPerBulan = (nominal, tenor, bungaPct) => {
+  const n = Number(nominal) || 0;
+  const t = Number(tenor) || 12;
+  const b = Number(bungaPct) || 0;
+  const totalBunga = (n * b * t) / 100;
+  const totalBayar = n + totalBunga;
+  return t > 0 ? totalBayar / t : 0;
+};
+
 const kreditSelectFields = [
   "id",
   "no",
@@ -68,9 +77,6 @@ const createKredit = async (req, res) => {
     pokok,
     bunga_pct,
     tenor,
-    angsuran_per_bulan,
-    sisa,
-    status,
     catatan
   } = req.body || {};
 
@@ -92,7 +98,7 @@ const createKredit = async (req, res) => {
     id,
     no,
     anggota_id,
-    jenis: jenis || "motor",
+    jenis: jenis || "kendaraan",
     nama_barang: nama_barang || null,
     toko: toko || null,
     tgl_mulai: tgl_mulai || null,
@@ -101,15 +107,55 @@ const createKredit = async (req, res) => {
     pokok: pokok || 0,
     bunga_pct: bunga_pct || 0,
     tenor: tenor || 0,
-    angsuran_per_bulan: angsuran_per_bulan || 0,
-    sisa: sisa || 0,
-    status: status || "aktif",
+    angsuran_per_bulan: 0,
+    sisa: 0,
+    status: "pending",
     catatan: catatan || null
   };
 
   await db("kredit").insert(payload);
 
   return res.status(201).json({ id: payload.id, no: payload.no, status: payload.status });
+};
+
+const updateKredit = async (req, res) => {
+  const { id } = req.params || {};
+  const { status } = req.body || {};
+
+  const row = await db("kredit").where({ id }).first();
+  if (!row) {
+    return res.status(404).json({ message: "Kredit not found" });
+  }
+
+  if (row.status !== "pending") {
+    return res.status(400).json({ message: "Hanya pengajuan berstatus pending yang dapat diproses" });
+  }
+
+  if (status === "ditolak") {
+    await db("kredit").where({ id }).update({
+      status: "ditolak",
+      sisa: 0,
+      angsuran_per_bulan: 0
+    });
+    return res.json({ id, status: "ditolak" });
+  }
+
+  if (status !== "aktif") {
+    return res.status(400).json({ message: "status harus aktif atau ditolak" });
+  }
+
+  const pokok = Number(row.pokok) || 0;
+  const tenor = Number(row.tenor) || 1;
+  const bunga = Number(row.bunga_pct) || 0;
+  const angsuran = computeAngsuranPerBulan(pokok, tenor, bunga);
+
+  await db("kredit").where({ id }).update({
+    status: "aktif",
+    sisa: pokok,
+    angsuran_per_bulan: angsuran
+  });
+
+  return res.json({ id, status: "aktif" });
 };
 
 const createKreditBayar = async (req, res) => {
@@ -138,4 +184,4 @@ const createKreditBayar = async (req, res) => {
   return res.status(201).json({ id: payload.id, kredit_id: payload.kredit_id });
 };
 
-module.exports = { listKredit, getKreditById, createKredit, createKreditBayar };
+module.exports = { listKredit, getKreditById, createKredit, createKreditBayar, updateKredit };

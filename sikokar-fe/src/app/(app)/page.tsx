@@ -7,13 +7,19 @@ import DataTable from "@/components/DataTable";
 import { getUser } from "@/lib/auth";
 import {
   listAnggota,
-  listApproval,
+  listKredit,
   listPenjualan,
   listPinjaman,
   listSimpanan,
-  type Approval,
   type Penjualan,
 } from "@/lib/api";
+
+type DashboardQueueItem = {
+  id: string;
+  modul: string;
+  status: string;
+  created_at?: string | null;
+};
 
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
@@ -31,7 +37,7 @@ export default function DashboardPage() {
   const [activeLoans, setActiveLoans] = useState(0);
   const [transactions, setTransactions] = useState<Penjualan[]>([]);
   const [omzetToday, setOmzetToday] = useState(0);
-  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [approvals, setApprovals] = useState<DashboardQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,12 +48,13 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [anggota, simpanan, pinjaman, penjualan, approval] = await Promise.all([
+        const [anggota, simpanan, pinjaman, penjualan, pinPending, kreditPending] = await Promise.all([
           listAnggota(),
           listSimpanan(),
           listPinjaman(),
           listPenjualan(),
-          listApproval({ status: "pending" }),
+          listPinjaman({ status: "pending" }),
+          listKredit({ status: "pending" }),
         ]);
         if (!active) {
           return;
@@ -57,7 +64,20 @@ export default function DashboardPage() {
         const simpananRows = simpanan.data;
         const pinjamanRows = pinjaman.data;
         const penjualanRows = penjualan.data;
-        const pendingApprovals = approval.data;
+        const pendingApprovals: DashboardQueueItem[] = [
+          ...pinPending.data.map((row) => ({
+            id: row.id,
+            modul: `Pinjaman · ${row.no}`,
+            status: row.status,
+            created_at: row.tgl_pengajuan || null,
+          })),
+          ...kreditPending.data.map((row) => ({
+            id: row.id,
+            modul: `Kredit · ${row.no}`,
+            status: row.status || "pending",
+            created_at: row.created_at || null,
+          })),
+        ];
 
         setMembers(memberRows.length);
         setActiveMembers(activeCount);

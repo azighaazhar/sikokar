@@ -191,6 +191,27 @@ export const createPinjaman = (payload: Partial<Pinjaman> & { id: string; no: st
     body: JSON.stringify(payload),
   });
 
+export const updatePinjaman = (id: string, payload: { status: "aktif" | "ditolak" }) =>
+  apiRequest<{ id: string; status: string }>(`/pinjaman/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+export const listKredit = (params?: { status?: string; jenis?: string; anggota_id?: string }) =>
+  apiRequest<{ data: Kredit[] }>(withQuery("/kredit", params));
+
+export const createKredit = (payload: Partial<Kredit> & { id: string; no: string; anggota_id: string }) =>
+  apiRequest<{ id: string; no: string; status?: string }>("/kredit", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+export const updateKredit = (id: string, payload: { status: "aktif" | "ditolak" }) =>
+  apiRequest<{ id: string; status: string }>(`/kredit/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
 export const createCoa = (payload: Partial<Coa> & { id: string; kode: string; nama: string; tipe: string }) =>
   apiRequest<{ id: string; kode: string; nama: string }>("/coa", {
     method: "POST",
@@ -374,6 +395,26 @@ export type Pinjaman = {
   status: string;
   tgl_pengajuan?: string | null;
   tgl_cair?: string | null;
+};
+
+export type Kredit = {
+  id: string;
+  no: string;
+  anggota_id: string;
+  jenis: string;
+  nama_barang?: string | null;
+  toko?: string | null;
+  tgl_mulai?: string | null;
+  harga_beli?: number | null;
+  dp?: number | null;
+  pokok?: number | null;
+  bunga_pct?: number | null;
+  tenor?: number | null;
+  angsuran_per_bulan?: number | null;
+  sisa?: number | null;
+  status?: string | null;
+  catatan?: string | null;
+  created_at?: string | null;
 };
 
 export type Barang = {

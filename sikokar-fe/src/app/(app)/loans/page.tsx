@@ -148,8 +148,7 @@ export default function LoansPage() {
         tgl_pengajuan: formState.tgl_pengajuan || null,
         tgl_cair: formState.tgl_cair || null,
       });
-      const tone: "ok" | "warn" | "err" =
-        res.status === "ditolak" ? "err" : res.status === "pending" ? "warn" : "ok";
+      const tone: "ok" | "warn" | "err" = res.status === "ditolak" ? "err" : "warn";
       setSubmitNotice({
         tone,
         text: [res.status?.toUpperCase(), res.reason].filter(Boolean).join(" — "),
@@ -181,9 +180,8 @@ export default function LoansPage() {
         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Pinjaman</div>
         <h1 className="mt-2 text-2xl font-display font-semibold text-slate-900">Monitoring Pinjaman</h1>
         <p className="text-sm text-slate-500">
-          Plafon per jabatan: Manager Rp50jt, HRD Rp30jt, Staff Rp10jt. Maksimal 3× pengajuan per anggota. Aturan:
-          nominal ≤ sisa limit dan frekuensi &lt; 3 → disetujui otomatis (aktif); nominal &gt; sisa limit dan frekuensi
-          &lt; 3 → pending (approval mendesak); frekuensi ≥ 3 → ditolak.
+          Plafon per jabatan: Manager Rp50jt, HRD Rp30jt, Staff Rp10jt. Maksimal 3× pengajuan per anggota. Setiap
+          pengajuan yang lolos aturan frekuensi masuk status menunggu dan diproses di halaman Approval.
         </p>
       </div>
 
@@ -353,7 +351,21 @@ export default function LoansPage() {
         <DataTable
           columns={[
             { key: "no", label: "Loan No", className: "w-32" },
-            { key: "anggota_id", label: "Member" },
+            {
+              key: "anggota_id",
+              label: "Anggota",
+              render: (row) => {
+                const ag = anggotaList.find((a) => a.id === row.anggota_id);
+                return ag ? (
+                  <div>
+                    <div className="font-semibold text-slate-900">{ag.nama}</div>
+                    <div className="text-xs text-slate-500">{ag.no}</div>
+                  </div>
+                ) : (
+                  row.anggota_id
+                );
+              },
+            },
             { key: "jenis", label: "Type" },
             { key: "tgl_cair", label: "Tanggal Cair" },
             {
@@ -403,13 +415,19 @@ export default function LoansPage() {
             {
               key: "aksi",
               label: "Aksi",
-              render: () => (
-                <div className="flex gap-2 text-xs font-semibold text-slate-500">
-                  <button className="rounded-full border border-slate-200 px-3 py-1">Angsur</button>
-                  <button className="rounded-full border border-emerald-200 px-3 py-1 text-emerald-600">Lunas</button>
-                  <button className="rounded-full border border-rose-200 px-3 py-1 text-rose-500">Hapus</button>
-                </div>
-              ),
+              render: (row) => {
+                if (row.status === "pending") {
+                  return (
+                    <span className="text-xs font-medium text-amber-800">
+                      Menunggu keputusan — gunakan menu Approval.
+                    </span>
+                  );
+                }
+                if (row.status === "ditolak") {
+                  return <span className="text-xs text-slate-400">—</span>;
+                }
+                return <span className="text-xs text-slate-400">Pembayaran / pelunasan (menu simpin)</span>;
+              },
             },
           ]}
           rows={displayRows}

@@ -392,7 +392,7 @@ CREATE TABLE `kredit` (
   `tenor` int(11) DEFAULT 0,
   `angsuran_per_bulan` decimal(15,2) DEFAULT 0.00,
   `sisa` decimal(15,2) DEFAULT 0.00,
-  `status` enum('aktif','lunas') DEFAULT 'aktif',
+  `status` enum('pending','aktif','lunas','ditolak') DEFAULT 'pending',
   `catatan` text DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

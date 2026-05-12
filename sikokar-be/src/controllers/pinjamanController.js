@@ -169,20 +169,15 @@ const createPinjaman = async (req, res) => {
     sisaPokok = 0;
     angsuranVal = 0;
     reason = "Ditolak: sudah mencapai maksimal 3 kali pengajuan pinjaman.";
-  } else if (nominalReq <= sisaLimit) {
-    finalStatus = "aktif";
-    nominalDisetujui = nominalReq;
-    sisaPokok = nominalReq;
-    angsuranVal = computeAngsuranPerBulan(nominalReq, tenorNum, bungaVal);
-    reason =
-      "Disetujui otomatis: nominal dalam sisa limit plafon jabatan dan frekuensi pengajuan masih di bawah 3 kali.";
   } else {
     finalStatus = "pending";
     nominalDisetujui = 0;
     sisaPokok = 0;
     angsuranVal = 0;
     reason =
-      "Pending — persetujuan mendesak: nominal melebihi sisa limit plafon jabatan, menunggu approval manual. (Frekuensi pengajuan masih di bawah 3 kali.)";
+      nominalReq <= sisaLimit
+        ? "Menunggu persetujuan di halaman Approval (nominal masih dalam sisa limit plafon)."
+        : "Menunggu persetujuan di halaman Approval (nominal melebihi sisa limit plafon jabatan).";
   }
 
   const payload = {
@@ -198,7 +193,7 @@ const createPinjaman = async (req, res) => {
     sisa_pokok: sisaPokok,
     status: finalStatus,
     tgl_pengajuan: tgl_pengajuan || null,
-    tgl_cair: finalStatus === "aktif" ? tgl_cair || null : null,
+    tgl_cair: null,
     user_id: user_id || null
   };
 
@@ -216,4 +211,73 @@ const createPinjaman = async (req, res) => {
   });
 };
 
-module.exports = { listPinjaman, getPinjamanById, createPinjaman };
+const updatePinjaman = async (req, res) => {
+  const { id } = req.params || {};
+  const { status } = req.body || {};
+
+  const row = await db("pinjaman").where({ id }).first();
+  if (!row) {
+    return res.status(404).json({ message: "Pinjaman not found" });
+  }
+
+  if (row.status !== "pending") {
+    return res.status(400).json({ message: "Hanya pengajuan berstatus pending yang dapat diproses" });
+  }
+
+  if (status === "ditolak") {
+    await db("pinjaman")
+      .where({ id })
+      .update({
+        status: "ditolak",
+        nominal_disetujui: 0,
+        sisa_pokok: 0,
+        angsuran_per_bulan: 0,
+        tgl_cair: null
+      });
+    return res.json({ id, status: "ditolak" });
+  }
+
+  if (status !== "aktif") {
+    return res.status(400).json({ message: "status harus aktif atau ditolak" });
+  }
+
+  const anggota = await db("anggota").where({ id: row.anggota_id }).first();
+  if (!anggota) {
+    return res.status(404).json({ message: "Anggota not found" });
+  }
+
+  const nominalReq = Number(row.nominal_pengajuan) || 0;
+  const tenorNum = Number(row.tenor) || 12;
+  const bungaVal = Number(row.bunga_pct) || (row.jenis === "darurat" ? 1.0 : 1.5);
+
+  const others = await db("pinjaman")
+    .where({ anggota_id: row.anggota_id })
+    .where("id", "!=", id)
+    .whereIn("status", ["pending", "aktif"]);
+  const terpakai = sumUsedLimit(others);
+  const plafon = resolveLoanCap(anggota.jabatan);
+  const sisaLimit = Math.max(0, plafon - terpakai);
+
+  if (nominalReq > sisaLimit) {
+    return res.status(400).json({
+      message: `Tidak dapat menyetujui: nominal melebihi sisa limit plafon (sisa ${sisaLimit}).`
+    });
+  }
+
+  const angsuranVal = computeAngsuranPerBulan(nominalReq, tenorNum, bungaVal);
+  const today = new Date().toISOString().slice(0, 10);
+
+  await db("pinjaman")
+    .where({ id })
+    .update({
+      status: "aktif",
+      nominal_disetujui: nominalReq,
+      sisa_pokok: nominalReq,
+      angsuran_per_bulan: angsuranVal,
+      tgl_cair: today
+    });
+
+  return res.json({ id, status: "aktif" });
+};
+
+module.exports = { listPinjaman, getPinjamanById, createPinjaman, updatePinjaman };

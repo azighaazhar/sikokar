@@ -7,18 +7,27 @@ import {
   createAnggota,
   deleteAnggota,
   listAnggota,
+  listKredit,
+  listPinjaman,
   listSimpanan,
   updateAnggota,
   type Anggota,
+  type Kredit,
+  type Pinjaman,
   type Simpanan,
 } from "@/lib/api";
 
 const departments = ["Produksi", "HR", "Finance", "Warehouse", "Engineering"];
 const positions = ["Manager", "Supervisor", "Koordinator", "Staff", "Asisten", "Driver", "Operator"];
 
+const formatRupiah = (value: number) =>
+  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
+
 export default function MembersPage() {
   const [rows, setRows] = useState<Anggota[]>([]);
   const [simpanan, setSimpanan] = useState<Simpanan[]>([]);
+  const [pinjaman, setPinjaman] = useState<Pinjaman[]>([]);
+  const [kredit, setKredit] = useState<Kredit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -63,6 +72,21 @@ export default function MembersPage() {
   });
   const anggotaCountLabel = loading ? "Memuat data anggota..." : `${rows.length} anggota ditemukan`;
 
+  const piutangMap = useMemo(() => {
+    const acc: Record<string, number> = {};
+    for (const p of pinjaman) {
+      if (p.status !== "aktif") continue;
+      const id = p.anggota_id;
+      acc[id] = (acc[id] || 0) + Number(p.sisa_pokok ?? p.nominal_disetujui ?? 0);
+    }
+    for (const k of kredit) {
+      if (k.status !== "aktif") continue;
+      const id = k.anggota_id;
+      acc[id] = (acc[id] || 0) + Number(k.sisa ?? k.pokok ?? 0);
+    }
+    return acc;
+  }, [pinjaman, kredit]);
+
   const simpananMap = useMemo(() => {
     return simpanan.reduce<Record<string, number>>((acc, row) => {
       acc[row.anggota_id] = (acc[row.anggota_id] || 0) + Number(row.saldo || 0);
@@ -74,9 +98,11 @@ export default function MembersPage() {
     setLoading(true);
     setError(null);
     try {
-      const [anggotaRes, simpananRes] = await Promise.all([
+      const [anggotaRes, simpananRes, pinjRes, kreditRes] = await Promise.all([
         listAnggota({ q: search, status: statusFilter || undefined }),
         listSimpanan(),
+        listPinjaman(),
+        listKredit(),
       ]);
       let data = anggotaRes.data;
       if (deptFilter) {
@@ -84,6 +110,8 @@ export default function MembersPage() {
       }
       setRows(data);
       setSimpanan(simpananRes.data);
+      setPinjaman(pinjRes.data);
+      setKredit(kreditRes.data);
     } catch (err) {
       const message =
         err && typeof err === "object" && "message" in err
@@ -577,7 +605,12 @@ export default function MembersPage() {
               render: (row) => (simpananMap[row.id] ? simpananMap[row.id].toLocaleString("id-ID") : "0"),
               className: "text-indigo-700 font-semibold",
             },
-            { key: "piutang", label: "Piutang", render: () => "-" },
+            {
+              key: "piutang",
+              label: "Piutang",
+              render: (row) => formatRupiah(piutangMap[row.id] || 0),
+              className: "text-amber-800 font-semibold",
+            },
             {
               key: "status",
               label: "Status",

@@ -8,7 +8,7 @@ const { listSupplier, getSupplierById, createSupplier } = require("../controller
 const { listStok, getStokById, createStok } = require("../controllers/stokController");
 const { listLokasi, getLokasiById, createLokasi } = require("../controllers/lokasiController");
 const { listPenjualan, getPenjualanById, createPenjualan } = require("../controllers/penjualanController");
-const { listPinjaman, getPinjamanById, createPinjaman } = require("../controllers/pinjamanController");
+const { listPinjaman, getPinjamanById, createPinjaman, updatePinjaman } = require("../controllers/pinjamanController");
 const { listPinjamanBayar, getPinjamanBayarById, createPinjamanBayar } = require("../controllers/pinjamanBayarController");
 const { listSimpanan, getSimpananById, createSimpanan } = require("../controllers/simpananController");
 const { listApproval, getApprovalById, createApproval } = require("../controllers/approvalController");
@@ -17,7 +17,7 @@ const { listCoa, getCoaById, createCoa } = require("../controllers/coaController
 const { listSetting, getSettingByKey, upsertSetting } = require("../controllers/settingController");
 const { listPembelian, getPembelianById, createPembelian } = require("../controllers/pembelianController");
 const { listRental, getRentalById, createRental, listRentalAset, getRentalAsetById, createRentalAset } = require("../controllers/rentalController");
-const { listKredit, getKreditById, createKredit, createKreditBayar } = require("../controllers/kreditController");
+const { listKredit, getKreditById, createKredit, createKreditBayar, updateKredit } = require("../controllers/kreditController");
 const { listSimpananTransaksi, createSimpananTransaksi } = require("../controllers/simpananTransaksiController");
 const { listPpob, createPpob } = require("../controllers/ppobController");
 const { listKolektif, getKolektifById, createKolektif } = require("../controllers/kolektifController");
@@ -33,8 +33,8 @@ router.post("/auth/login", asyncHandler(login));
 router.post("/users", requireAuth, requireRole(["admin"]), asyncHandler(createUser));
 router.get("/users", requireAuth, requireRole(["admin"]), asyncHandler(listUsers));
 router.get("/users/:id", requireAuth, requireRole(["admin"]), asyncHandler(getUserById));
-router.get("/anggota", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(listAnggota));
-router.get("/anggota/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(getAnggotaById));
+router.get("/anggota", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(listAnggota));
+router.get("/anggota/:id", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(getAnggotaById));
 router.post("/anggota", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createAnggota));
 router.put("/anggota/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(updateAnggota));
 router.delete("/anggota/:id", requireAuth, requireRole(["admin"]), asyncHandler(deleteAnggota));
@@ -55,9 +55,10 @@ router.get("/penjualan", requireAuth, requireRole(["admin", "pengurus", "kasir"]
 router.get("/penjualan/:id", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(getPenjualanById));
 router.post("/penjualan", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(createPenjualan));
 router.post("/pos/checkout", requireAuth, requireRole(["admin", "pengurus", "kasir"]), asyncHandler(createPenjualan));
-router.get("/pinjaman", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listPinjaman));
-router.get("/pinjaman/:id", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(getPinjamanById));
+router.get("/pinjaman", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(listPinjaman));
+router.get("/pinjaman/:id", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(getPinjamanById));
 router.post("/pinjaman", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createPinjaman));
+router.put("/pinjaman/:id", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(updatePinjaman));
 router.get("/pinjaman-bayar", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listPinjamanBayar));
 router.get("/pinjaman-bayar/:id", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(getPinjamanBayarById));
 router.post("/pinjaman-bayar", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createPinjamanBayar));
@@ -88,9 +89,10 @@ router.get("/rental-booking", requireAuth, requireRole(["admin", "pengurus"]), a
 router.get("/rental-booking/:id", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(getRentalById));
 router.post("/rental-booking", requireAuth, requireRole(["admin", "pengurus"]), asyncHandler(createRental));
 
-router.get("/kredit", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listKredit));
-router.get("/kredit/:id", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(getKreditById));
+router.get("/kredit", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(listKredit));
+router.get("/kredit/:id", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(getKreditById));
 router.post("/kredit", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createKredit));
+router.put("/kredit/:id", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(updateKredit));
 router.post("/kredit-bayar", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createKreditBayar));
 
 router.get("/simpanan-transaksi", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listSimpananTransaksi));
