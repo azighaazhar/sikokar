@@ -210,7 +210,30 @@ export type RentalAset = {
   status?: string | null;
 };
 
-export const listRentalAsset = () => apiRequest<{ data: RentalAset[] }>("/rental");
+export const listRentalAsset = (params?: { status?: string; kategori?: string }) =>
+  apiRequest<{ data: RentalAset[] }>(withQuery("/rental", params));
+
+export type RentalBooking = {
+  id: string;
+  no: string;
+  tgl_mulai: string;
+  tgl_selesai?: string | null;
+  aset_id?: string | null;
+  kategori?: string | null;
+  tipe_harga?: string | null;
+  tarif_custom?: number | null;
+  total?: number | null;
+  status?: string | null;
+  tipe_penyewa?: string | null;
+  nama_penyewa?: string | null;
+  nama_perusahaan?: string | null;
+  no_hp?: string | null;
+  keterangan?: string | null;
+  created_at?: string | null;
+};
+
+export const listRentalBooking = (params?: { status?: string; aset_id?: string }) =>
+  apiRequest<{ data: RentalBooking[] }>(withQuery("/rental-booking", params));
 
 export type RentalBookingPayload = {
   id: string;

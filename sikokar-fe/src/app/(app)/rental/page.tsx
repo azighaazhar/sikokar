@@ -3,27 +3,32 @@
 import { useEffect, useState } from "react";
 import DataTable from "@/components/DataTable";
 import PanelCard from "@/components/PanelCard";
-import { createRentalAsset, listRentalAsset, createRental, type RentalAset } from "@/lib/api";
-
-type RentalRow = {
-  id: string;
-  mulai: string;
-  selesai: string;
-  aset: string;
-  kategori: string;
-  penyewa: string;
-  tipe_harga: string;
-  total: number;
-  status: string;
-};
+import {
+  createRentalAsset,
+  listRentalAsset,
+  createRental,
+  listRentalBooking,
+  type RentalAset,
+  type RentalBooking,
+} from "@/lib/api";
 
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
     value
   );
 
+/** Inclusive calendar days between ISO date strings (YYYY-MM-DD). */
+const rentalDaysInclusive = (tglMulai: string, tglSelesai: string) => {
+  if (!tglMulai || !tglSelesai) return 1;
+  const start = new Date(`${tglMulai}T12:00:00`);
+  const end = new Date(`${tglSelesai}T12:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
+  const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
+  return Math.max(1, diff + 1);
+};
+
 export default function RentalPage() {
-  const [rows] = useState<RentalRow[]>([]);
+  const [bookingRows, setBookingRows] = useState<RentalBooking[]>([]);
   const [showBooking, setShowBooking] = useState(false);
   const [showAsset, setShowAsset] = useState(false);
   const [savingAsset, setSavingAsset] = useState(false);
@@ -31,6 +36,7 @@ export default function RentalPage() {
   const [asetList, setAsetList] = useState<RentalAset[]>([]);
   const [assetError, setAssetError] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingListError, setBookingListError] = useState<string | null>(null);
 
   const [assetForm, setAssetForm] = useState({
     kode: "",
@@ -53,13 +59,30 @@ export default function RentalPage() {
     nama_penyewa: "",
     nama_perusahaan: "",
     no_hp: "",
+    keterangan: "",
   });
 
   const categories = ["Kendaraan Roda 4", "Kendaraan Roda 2", "Alat Berat"];
 
   useEffect(() => {
-    loadAset();
+    void loadAset();
+    void loadBookings();
   }, []);
+
+  const loadBookings = async () => {
+    try {
+      const res = await listRentalBooking();
+      setBookingRows(res.data);
+      setBookingListError(null);
+    } catch (err) {
+      setBookingRows([]);
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Gagal memuat daftar booking";
+      setBookingListError(message);
+    }
+  };
 
   const loadAset = async () => {
     try {
@@ -88,13 +111,15 @@ export default function RentalPage() {
         return;
       }
 
-      let tarif = 0;
+      const days = rentalDaysInclusive(bookingForm.tgl_mulai, bookingForm.tgl_selesai);
+      const bulan = Math.max(1, Math.ceil(days / 30));
+      let total = 0;
       if (bookingForm.tipe_harga === "harian") {
-        tarif = selectedAset.tarif_harian || 0;
+        total = days * (selectedAset.tarif_harian || 0);
       } else if (bookingForm.tipe_harga === "bulanan") {
-        tarif = selectedAset.tarif_bulanan || 0;
+        total = bulan * (selectedAset.tarif_bulanan || 0);
       } else {
-        tarif = Number(bookingForm.tarif_custom || 0);
+        total = Number(bookingForm.tarif_custom || 0);
       }
 
       await createRental({
@@ -105,13 +130,14 @@ export default function RentalPage() {
         aset_id: bookingForm.aset_id,
         kategori: selectedAset.kategori || null,
         tipe_harga: bookingForm.tipe_harga,
-        tarif_custom: bookingForm.tipe_harga === "custom" ? Number(bookingForm.tarif_custom) : null,
-        total: tarif,
+        tarif_custom: bookingForm.tipe_harga === "custom" ? Number(bookingForm.tarif_custom) : 0,
+        total,
         status: "aktif",
         tipe_penyewa: bookingForm.tipe_penyewa,
         nama_penyewa: bookingForm.nama_penyewa,
         nama_perusahaan: bookingForm.nama_perusahaan || null,
         no_hp: bookingForm.no_hp || null,
+        keterangan: bookingForm.keterangan.trim() || null,
       });
 
       setBookingForm({
@@ -124,8 +150,11 @@ export default function RentalPage() {
         nama_penyewa: "",
         nama_perusahaan: "",
         no_hp: "",
+        keterangan: "",
       });
       setShowBooking(false);
+      await loadBookings();
+      await loadAset();
     } catch (err) {
       const message =
         err && typeof err === "object" && "message" in err
@@ -276,6 +305,13 @@ export default function RentalPage() {
                 placeholder="No HP"
                 className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
               />
+              <textarea
+                value={bookingForm.keterangan}
+                onChange={(event) => setBookingForm({ ...bookingForm, keterangan: event.target.value })}
+                placeholder="Keperluan / keterangan (opsional)"
+                rows={2}
+                className="md:col-span-3 rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              />
             </div>
             <div className="md:col-span-3 flex justify-end gap-2">
               <button
@@ -412,35 +448,73 @@ export default function RentalPage() {
         )}
       </PanelCard>
 
-      <PanelCard title="Daftar Rental">
+      <PanelCard title="Daftar Aset">
         <DataTable
           columns={[
-            { key: "id", label: "No Rental" },
-            { key: "mulai", label: "Tgl Mulai" },
-            { key: "selesai", label: "Tgl Selesai" },
-            { key: "aset", label: "Aset" },
+            { key: "kode", label: "Kode", className: "w-28" },
+            { key: "nama", label: "Nama Aset" },
             { key: "kategori", label: "Kategori" },
-            { key: "penyewa", label: "Penyewa" },
+            {
+              key: "tarif_harian",
+              label: "Tarif / hari",
+              render: (row) => formatRupiah(Number(row.tarif_harian || 0)),
+            },
+            {
+              key: "tarif_bulanan",
+              label: "Tarif / bln",
+              render: (row) => formatRupiah(Number(row.tarif_bulanan || 0)),
+            },
+            { key: "nopol", label: "Nopol / ID" },
+            { key: "status", label: "Status" },
+          ]}
+          rows={asetList}
+          emptyLabel="Belum ada aset. Tambahkan lewat Kelola Aset."
+        />
+      </PanelCard>
+
+      <PanelCard title="Daftar Booking">
+        {bookingListError && (
+          <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+            {bookingListError}
+          </div>
+        )}
+        <DataTable
+          columns={[
+            { key: "no", label: "No Booking", className: "w-32" },
+            {
+              key: "tgl_mulai",
+              label: "Mulai",
+              render: (row) => String(row.tgl_mulai ?? "-").slice(0, 10),
+            },
+            {
+              key: "tgl_selesai",
+              label: "Selesai",
+              render: (row) => String(row.tgl_selesai ?? "-").slice(0, 10),
+            },
+            {
+              key: "aset_id",
+              label: "Aset",
+              render: (row) => {
+                const a = asetList.find((x) => x.id === row.aset_id);
+                return a ? `${a.nama} (${a.kode})` : (row.aset_id ?? "-");
+              },
+            },
+            { key: "kategori", label: "Kategori" },
+            {
+              key: "nama_penyewa",
+              label: "Penyewa",
+              render: (row) => row.nama_penyewa || row.nama_perusahaan || "-",
+            },
             { key: "tipe_harga", label: "Tipe Harga" },
             {
               key: "total",
               label: "Total",
-              render: (row) => formatRupiah(row.total),
+              render: (row) => formatRupiah(Number(row.total || 0)),
             },
             { key: "status", label: "Status" },
-            {
-              key: "aksi",
-              label: "Aksi",
-              render: () => (
-                <div className="flex gap-2 text-xs font-semibold text-slate-500">
-                  <button className="rounded-full border border-slate-200 px-3 py-1">Pengembalian</button>
-                  <button className="rounded-full border border-rose-200 px-3 py-1 text-rose-500">Hapus</button>
-                </div>
-              ),
-            },
           ]}
-          rows={rows}
-          emptyLabel="Belum ada rental"
+          rows={bookingRows}
+          emptyLabel="Belum ada booking"
         />
       </PanelCard>
     </div>
