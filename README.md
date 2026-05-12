@@ -6,11 +6,11 @@ Setup ini menjalankan frontend (Next.js), backend (Express), dan database (Maria
 - Docker Desktop
 
 ## Menjalankan Aplikasi
-1. Pastikan file env sudah ada:
-   - `sikokar-be/.env`
-   - `sikokar-fe/.env.local`
+1. Salin file env contoh:
+   - `sikokar-be/.env.example` -> `sikokar-be/.env`
+   - `sikokar-fe/.env.example` -> `sikokar-fe/.env.local`
 
-   Isi default yang dipakai:
+   Nilai default yang dipakai:
    ```
    # sikokar-be/.env
    PORT=3002
@@ -19,8 +19,8 @@ Setup ini menjalankan frontend (Next.js), backend (Express), dan database (Maria
    DB_USER=sikokar
    DB_PASSWORD=sikokar
    DB_NAME=db_sikokar
-   JWT_SECRET=rahasia123
-   JWT_EXPIRES_IN=1m
+   JWT_SECRET=change-me
+   JWT_EXPIRES_IN=1d
 
    # sikokar-fe/.env.local
    NEXT_PUBLIC_API_BASE_URL=http://localhost:3002
