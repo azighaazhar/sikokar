@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DataTable from "@/components/DataTable";
 import PanelCard from "@/components/PanelCard";
-import { createRentalAsset } from "@/lib/api";
+import { createRentalAsset, listRentalAsset, createRental, type RentalAset } from "@/lib/api";
 
 type RentalRow = {
   id: string;
@@ -27,6 +27,11 @@ export default function RentalPage() {
   const [showBooking, setShowBooking] = useState(false);
   const [showAsset, setShowAsset] = useState(false);
   const [savingAsset, setSavingAsset] = useState(false);
+  const [savingBooking, setSavingBooking] = useState(false);
+  const [asetList, setAsetList] = useState<RentalAset[]>([]);
+  const [assetError, setAssetError] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
   const [assetForm, setAssetForm] = useState({
     kode: "",
     nama: "",
@@ -37,30 +42,190 @@ export default function RentalPage() {
     nopol: "",
     status: "tersedia",
   });
-  const [assetError, setAssetError] = useState<string | null>(null);
+
+  const [bookingForm, setBookingForm] = useState({
+    aset_id: "",
+    tgl_mulai: "",
+    tgl_selesai: "",
+    tipe_harga: "harian",
+    tarif_custom: "",
+    tipe_penyewa: "umum",
+    nama_penyewa: "",
+    nama_perusahaan: "",
+    no_hp: "",
+  });
+
   const categories = ["Kendaraan Roda 4", "Kendaraan Roda 2", "Alat Berat"];
 
-  const handleAssetSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSavingAsset(true);
-    setAssetError(null);
+  useEffect(() => {
+    loadAset();
+  }, []);
+
+  const loadAset = async () => {
     try {
-      await createRentalAsset({
-        id: `RA${Date.now()}`,
-        kode: assetForm.kode,
-        nama: assetForm.nama,
-        kategori: assetForm.kategori || null,
-        tarif_harian: assetForm.tarif_harian ? Number(assetForm.tarif_harian) : 0,
-        tarif_bulanan: assetForm.tarif_bulanan ? Number(assetForm.tarif_bulanan) : 0,
-        kapasitas: assetForm.kapasitas ? Number(assetForm.kapasitas) : 0,
-        nopol: assetForm.nopol || null,
-        status: assetForm.status,
+      const res = await listRentalAsset();
+      setAsetList(res.data);
+    } catch {
+      setAsetList([]);
+      loadAset();
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Gagal menyimpan aset";
+      setAssetError(message);
+    } finally {
+      setSavingAsset(false);
+    }
+  };
+
+  const handleBookingSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSavingBooking(true);
+    setBookingError(null);
+    try {
+      const selectedAset = asetList.find((a) => a.id === bookingForm.aset_id);
+      if (!selectedAset) {
+        setBookingError("Silakan pilih aset");
+        setSavingBooking(false);
+        return;
+      }
+
+      let tarif = 0;
+      if (bookingForm.tipe_harga === "harian") {
+        tarif = selectedAset.tarif_harian || 0;
+      } else if (bookingForm.tipe_harga === "bulanan") {
+        tarif = selectedAset.tarif_bulanan || 0;
+      } else {
+        tarif = Number(bookingForm.tarif_custom || 0);
+      }
+
+      await createRental({
+        id: `RB${Date.now()}`,
+        no: `RB-${Date.now()}`,
+        tgl_mulai: bookingForm.tgl_mulai,
+        tgl_selesai: bookingForm.tgl_selesai,
+        aset_id: bookingForm.aset_id,
+        tipe_harga: bookingForm.tipe_harga,
+        tarif_custom: bookingForm.tipe_harga === "custom" ? Number(bookingForm.tarif_custom) : null,
+        total: tarif,
+        status: "aktif",
+        tipe_penyewa: bookingForm.tipe_penyewa,
+        nama_penyewa: bookingForm.nama_penyewa,
+        nama_perusahaan: bookingForm.nama_perusahaan || null,
+        no_hp: bookingForm.no_hp || null,
       });
-      setAssetForm({
-        kode: "",
-        nama: "",
-        kategori: "",
-        tarif_harian: "",
+
+      setBookingForm({
+        aset_id: "",
+        tgl_mulai: "",
+        tgl_selesai: "",
+        tipe_harga: "harian",
+        tarif_custom: "",
+        tipe_penyewa: "umum",
+        nama_penyewa: "",
+        nama_perusahaan: "",
+        no_hp: "",
+      });
+      setShowBooking(false);
+    } catchform onSubmit={handleBookingSubmit} className="space-y-4">
+            {bookingError && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {bookingError}
+              </div>
+            )}
+            <div className="grid gap-3 md:grid-cols-3">
+              <select
+                required
+                value={bookingForm.aset_id}
+                onChange={(event) => setBookingForm({ ...bookingForm, aset_id: event.target.value })}
+                className="rounded-xl border border-slate-200 px-3 py-3 text-sm"
+              >
+                <option value="">Pilih Aset</option>
+                {asetList.map((aset) => (
+                  <option key={aset.id} value={aset.id}>
+                    {aset.nama}
+                  </option>
+                ))}
+              </select>
+              <input
+                required
+                type="date"
+                value={bookingForm.tgl_mulai}
+                onChange={(event) => setBookingForm({ ...bookingForm, tgl_mulai: event.target.value })}
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              />
+              <input
+                required
+                type="date"
+                value={bookingForm.tgl_selesai}
+                onChange={(event) => setBookingForm({ ...bookingForm, tgl_selesai: event.target.value })}
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              />
+              <select
+                value={bookingForm.tipe_harga}
+                onChange={(event) => setBookingForm({ ...bookingForm, tipe_harga: event.target.value })}
+                className="rounded-xl border border-slate-200 px-3 py-3 text-sm"
+              >
+                <option value="harian">Harian</option>
+                <option value="bulanan">Bulanan</option>
+                <option value="custom">Custom</option>
+              </select>
+              {bookingForm.tipe_harga === "custom" && (
+                <input
+                  type="number"
+                  value={bookingForm.tarif_custom}
+                  onChange={(event) => setBookingForm({ ...bookingForm, tarif_custom: event.target.value })}
+                  placeholder="Tarif Custom"
+                  className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+                />
+              )}
+              <select
+                value={bookingForm.tipe_penyewa}
+                onChange={(event) => setBookingForm({ ...bookingForm, tipe_penyewa: event.target.value })}
+                className="rounded-xl border border-slate-200 px-3 py-3 text-sm"
+              >
+                <option value="umum">Umum</option>
+                <option value="karyawan">Karyawan/Anggota</option>
+                <option value="perusahaan">Perusahaan</option>
+              </select>
+              <input
+                required
+                value={bookingForm.nama_penyewa}
+                onChange={(event) => setBookingForm({ ...bookingForm, nama_penyewa: event.target.value })}
+                placeholder="Nama Penyewa"
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              />
+              <input
+                value={bookingForm.nama_perusahaan}
+                onChange={(event) => setBookingForm({ ...bookingForm, nama_perusahaan: event.target.value })}
+                placeholder="Nama Perusahaan"
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              />
+              <input
+                value={bookingForm.no_hp}
+                onChange={(event) => setBookingForm({ ...bookingForm, no_hp: event.target.value })}
+                placeholder="No HP"
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+              />
+            </div>
+            <div className="md:col-span-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBooking(false)}
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={savingBooking}
+                className="rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-70"
+              >
+                {savingBooking ? "Menyimpan..." : "Simpan Booking"}
+              </button>
+            </div>
+          </formarian: "",
         tarif_bulanan: "",
         kapasitas: "",
         nopol: "",

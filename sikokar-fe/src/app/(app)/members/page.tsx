@@ -6,6 +6,7 @@ import PanelCard from "@/components/PanelCard";
 import { createAnggota, listAnggota, listSimpanan, type Anggota, type Simpanan } from "@/lib/api";
 
 const departments = ["Produksi", "HR", "Finance", "Warehouse", "Engineering"];
+const positions = ["Manager", "Supervisor", "Koordinator", "Staff", "Asisten", "Driver", "Operator"];
 
 export default function MembersPage() {
   const [rows, setRows] = useState<Anggota[]>([]);
@@ -246,12 +247,18 @@ export default function MembersPage() {
                 </option>
               ))}
             </select>
-            <input
+            <select
               value={formState.jabatan}
               onChange={(event) => setFormState({ ...formState, jabatan: event.target.value })}
-              placeholder="Jabatan"
-              className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
-            />
+              className="rounded-xl border border-slate-200 px-3 py-3 text-sm"
+            >
+              <option value="">Pilih Jabatan</option>
+              {positions.map((pos) => (
+                <option key={pos} value={pos}>
+                  {pos}
+                </option>
+              ))}
+            </select>
             <input
               value={formState.gaji}
               onChange={(event) => setFormState({ ...formState, gaji: event.target.value })}

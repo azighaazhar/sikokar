@@ -116,4 +116,4 @@ const createAnggota = async (req, res) => {
   return res.status(201).json({ id: payload.id, no: payload.no, nama: payload.nama });
 };
 
-module.exports = { listAnggota, getAnggotaById, createAnggota };
+module.exports = { listAnggota, getAnggotaById, createAnggota, deleteAnggota };

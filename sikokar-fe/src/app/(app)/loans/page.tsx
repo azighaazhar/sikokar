@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/DataTable";
 import PanelCard from "@/components/PanelCard";
-import { createPinjaman, listPinjaman, type Pinjaman } from "@/lib/api";
+import { createPinjaman, listPinjaman, listAnggota, type Pinjaman, type Anggota } from "@/lib/api";
 
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(
@@ -12,6 +12,7 @@ const formatRupiah = (value: number) =>
 
 export default function LoansPage() {
   const [rows, setRows] = useState<Pinjaman[]>([]);
+  const [anggotaList, setAnggotaList] = useState<Anggota[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -33,9 +34,13 @@ export default function LoansPage() {
       setLoading(true);
       setError(null);
       try {
-        const response = await listPinjaman({ status: statusFilter || undefined });
+        const [pinjRes, angRes] = await Promise.all([
+          listPinjaman({ status: statusFilter || undefined }),
+          listAnggota(),
+        ]);
         if (active) {
-          setRows(response.data);
+          setRows(pinjRes.data);
+          setAnggotaList(angRes.data);
         }
       } catch (err) {
         if (active) {
@@ -166,18 +171,24 @@ export default function LoansPage() {
             className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
           >
             {showForm ? "Tutup Form" : "Ajukan Pinjaman"}
-          </button>
-        }
-      >
-        {showForm ? (
-          <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-3">
-            <input
+          </{error && (
+              <div className="md:col-span-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {error}
+              </div>
+            )}
+            <select
               required
               value={formState.anggota_id}
               onChange={(event) => setFormState({ ...formState, anggota_id: event.target.value })}
-              placeholder="Cari anggota (NIP/Nama/ID)"
-              className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
-            />
+              className="rounded-xl border border-slate-200 px-3 py-3 text-sm"
+            >
+              <option value="">Pilih Anggota</option>
+              {anggotaList.map((anggota) => (
+                <option key={anggota.id} value={anggota.id}>
+                  {anggota.nama} ({anggota.no})
+                </option>
+              ))}
+            </select>
             <select
               value={formState.jenis}
               onChange={(event) => setFormState({ ...formState, jenis: event.target.value })}
@@ -187,8 +198,15 @@ export default function LoansPage() {
               <option value="darurat">Darurat (1.0%/bln)</option>
             </select>
             <input
+              required
               value={formState.nominal_pengajuan}
               onChange={(event) => setFormState({ ...formState, nominal_pengajuan: event.target.value })}
+              placeholder="Nominal (Rp)"
+              type="number"
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
+            />
+            <input
+              requiredange={(event) => setFormState({ ...formState, nominal_pengajuan: event.target.value })}
               placeholder="Nominal (Rp)"
               type="number"
               className="rounded-xl border border-slate-200 px-4 py-3 text-sm"
