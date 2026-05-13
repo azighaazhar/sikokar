@@ -8,7 +8,14 @@ const { listSupplier, getSupplierById, createSupplier, updateSupplier } = requir
 const { listStok, getStokById, createStok } = require("../controllers/stokController");
 const { listLokasi, getLokasiById, createLokasi } = require("../controllers/lokasiController");
 const { listPenjualan, getPenjualanById, createPenjualan } = require("../controllers/penjualanController");
-const { listPinjaman, getPinjamanById, createPinjaman, updatePinjaman } = require("../controllers/pinjamanController");
+const {
+  listPinjaman,
+  getPinjamanById,
+  createPinjaman,
+  updatePinjaman,
+  bayarAngsuran,
+  lunasiPinjaman
+} = require("../controllers/pinjamanController");
 const { listPinjamanBayar, getPinjamanBayarById, createPinjamanBayar } = require("../controllers/pinjamanBayarController");
 const { listSimpanan, getSimpananById, createSimpanan } = require("../controllers/simpananController");
 const { listApproval, getApprovalById, createApproval } = require("../controllers/approvalController");
@@ -21,7 +28,7 @@ const { listKredit, getKreditById, createKredit, createKreditBayar, updateKredit
 const { listSimpananTransaksi, createSimpananTransaksi } = require("../controllers/simpananTransaksiController");
 const { listPpob, createPpob } = require("../controllers/ppobController");
 const { listKolektif, getKolektifById, createKolektif } = require("../controllers/kolektifController");
-const { summaryReport } = require("../controllers/reportController");
+const { summaryReport, analyticsReport } = require("../controllers/reportController");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { asyncHandler } = require("../middleware/errorHandler");
 
@@ -59,6 +66,8 @@ router.post("/pos/checkout", requireAuth, requireRole(["admin", "pengurus", "kas
 router.get("/pinjaman", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(listPinjaman));
 router.get("/pinjaman/:id", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(getPinjamanById));
 router.post("/pinjaman", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(createPinjaman));
+router.post("/pinjaman/:id/angsuran", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(bayarAngsuran));
+router.post("/pinjaman/:id/lunas", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(lunasiPinjaman));
 router.put("/pinjaman/:id", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(updatePinjaman));
 router.get("/pinjaman-bayar", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(listPinjamanBayar));
 router.get("/pinjaman-bayar/:id", requireAuth, requireRole(["admin", "pengurus", "simpin"]), asyncHandler(getPinjamanBayarById));
@@ -107,5 +116,6 @@ router.get("/kolektif/:id", requireAuth, requireRole(["admin", "pengurus", "simp
 router.post("/kolektif", requireAuth, requireRole(["admin", "pengurus", "simpin", "accounting"]), asyncHandler(createKolektif));
 
 router.get("/reports/summary", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(summaryReport));
+router.get("/reports/analytics", requireAuth, requireRole(["admin", "pengurus", "accounting"]), asyncHandler(analyticsReport));
 
 module.exports = router;

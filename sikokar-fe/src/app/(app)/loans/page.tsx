@@ -1,9 +1,13 @@
 "use client";
 
+
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "@/components/DataTable";
 import PanelCard from "@/components/PanelCard";
+import AngsuranModal from "@/components/AngsuranModal";
+import LunasDialog from "@/components/LunasDialog";
 import { createPinjaman, listPinjaman, listAnggota, type Pinjaman, type Anggota, type CreatePinjamanResult } from "@/lib/api";
+import { bayarAngsuran, lunasiPinjaman } from "@/lib/loan-actions";
 
 const LOAN_CAP_BY_ROLE = { manager: 50_000_000, hrd: 30_000_000, staff: 10_000_000 };
 
@@ -63,6 +67,12 @@ export default function LoansPage() {
 
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [submitNotice, setSubmitNotice] = useState<{ tone: "ok" | "warn" | "err"; text: string } | null>(null);
+  const [showAngsur, setShowAngsur] = useState(false);
+  const [showLunas, setShowLunas] = useState(false);
+  const [selectedPinjaman, setSelectedPinjaman] = useState<Pinjaman | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  /** Pinjaman aktif yang dipilih dari area form (pembayaran). */
+  const [pembayaranPinjamanId, setPembayaranPinjamanId] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -145,6 +155,21 @@ export default function LoansPage() {
     const totalBayar = nominal + totalBunga;
     return totalBayar / tenor;
   }, [formState.jenis, formState.nominal_pengajuan, formState.tenor]);
+
+  const pinjamanAktifList = useMemo(() => rows.filter((r) => r.status === "aktif"), [rows]);
+
+  const pinjamanUntukPembayaranForm = useMemo(() => {
+    if (!pembayaranPinjamanId) return null;
+    return rows.find((r) => r.id === pembayaranPinjamanId && r.status === "aktif") ?? null;
+  }, [rows, pembayaranPinjamanId]);
+
+  useEffect(() => {
+    if (!pembayaranPinjamanId) return;
+    const row = rows.find((r) => r.id === pembayaranPinjamanId);
+    if (!row || row.status !== "aktif") {
+      setPembayaranPinjamanId("");
+    }
+  }, [rows, pembayaranPinjamanId]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -265,16 +290,88 @@ export default function LoansPage() {
       </PanelCard>
 
       <PanelCard
-        title="Ajukan Pinjaman"
+        title="Form pinjaman"
         action={
           <button
             onClick={() => setShowForm((prev) => !prev)}
             className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
           >
-            {showForm ? "Tutup Form" : "Ajukan Pinjaman"}
+            {showForm ? "Tutup form pengajuan" : "Ajukan pinjaman baru"}
           </button>
         }
       >
+        <div className="mb-8 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 md:p-5">
+          <div className="text-sm font-semibold text-slate-900">Angsur &amp; lunas (pinjaman aktif)</div>
+          <p className="mt-1 text-xs text-slate-500">
+            Pilih pinjaman yang sudah cair, lalu catat pembayaran angsuran bulanan atau pelunasan penuh — sama seperti dari tabel di bawah.
+          </p>
+          {pinjamanAktifList.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">Belum ada pinjaman berstatus aktif.</p>
+          ) : (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 md:items-end">
+              <div className="md:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Pinjaman</label>
+                <select
+                  value={pembayaranPinjamanId}
+                  onChange={(e) => setPembayaranPinjamanId(e.target.value)}
+                  className="mt-1 w-full max-w-xl rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm"
+                >
+                  <option value="">Pilih no. pinjaman…</option>
+                  {pinjamanAktifList.map((p) => {
+                    const ag = anggotaList.find((a) => a.id === p.anggota_id);
+                    const label = ag ? `${ag.nama} (${ag.no})` : p.anggota_id;
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.no} — {label} · sisa {formatRupiah(Number(p.sisa_pokok || 0))}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              {pinjamanUntukPembayaranForm && (
+                <>
+                  <div className="rounded-xl border border-white bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+                    <div>
+                      Angsuran / bln:{" "}
+                      <span className="font-semibold text-slate-900">
+                        {formatRupiah(Number(pinjamanUntukPembayaranForm.angsuran_per_bulan || 0))}
+                      </span>
+                    </div>
+                    <div className="mt-1">
+                      Sisa pokok:{" "}
+                      <span className="font-semibold text-indigo-800">
+                        {formatRupiah(Number(pinjamanUntukPembayaranForm.sisa_pokok || 0))}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+                      onClick={() => {
+                        setSelectedPinjaman(pinjamanUntukPembayaranForm);
+                        setShowAngsur(true);
+                      }}
+                    >
+                      Angsur
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-sky-600 bg-white px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-50"
+                      onClick={() => {
+                        setSelectedPinjaman(pinjamanUntukPembayaranForm);
+                        setShowLunas(true);
+                      }}
+                    >
+                      Lunas
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         {showForm ? (
           <form onSubmit={handleSubmit} className="grid gap-3 md:grid-cols-3">
             {loanPreview && (
@@ -363,7 +460,9 @@ export default function LoansPage() {
             </div>
           </form>
         ) : (
-          <div className="text-sm text-slate-500">Klik "Ajukan Pinjaman" untuk membuka form.</div>
+          <div className="text-sm text-slate-500">
+            Klik &quot;Ajukan pinjaman baru&quot; di pojok kanan atas kartu ini untuk membuka form pengajuan.
+          </div>
         )}
       </PanelCard>
 
@@ -426,7 +525,9 @@ export default function LoansPage() {
                       ? "bg-amber-50 text-amber-700"
                       : st === "ditolak"
                         ? "bg-rose-50 text-rose-700"
-                        : "bg-slate-50 text-slate-600";
+                        : st === "lunas"
+                          ? "bg-sky-50 text-sky-800"
+                          : "bg-slate-50 text-slate-600";
                 return (
                   <span className={`rounded-full px-2 py-1 text-xs font-semibold ${cls}`}>{st}</span>
                 );
@@ -446,7 +547,36 @@ export default function LoansPage() {
                 if (row.status === "ditolak") {
                   return <span className="text-xs text-slate-400">—</span>;
                 }
-                return <span className="text-xs text-slate-400">Pembayaran / pelunasan (menu simpin)</span>;
+                if (row.status === "lunas") {
+                  return <span className="text-xs text-slate-500">Sudah lunas</span>;
+                }
+                if (row.status !== "aktif") {
+                  return <span className="text-xs text-slate-400">—</span>;
+                }
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                      onClick={() => {
+                        setSelectedPinjaman(row);
+                        setShowAngsur(true);
+                      }}
+                    >
+                      Angsur
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-sky-600 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50"
+                      onClick={() => {
+                        setSelectedPinjaman(row);
+                        setShowLunas(true);
+                      }}
+                    >
+                      Lunas
+                    </button>
+                  </div>
+                );
               },
             },
           ]}
@@ -454,6 +584,67 @@ export default function LoansPage() {
           emptyLabel={loading ? "Loading loans..." : "No loans found"}
         />
       </PanelCard>
+
+      <AngsuranModal
+        open={showAngsur}
+        loading={actionLoading}
+        onClose={() => {
+          setShowAngsur(false);
+          setSelectedPinjaman(null);
+        }}
+        onConfirm={async ({ tanggal, metode }) => {
+          if (!selectedPinjaman) return;
+          setActionLoading(true);
+          try {
+            const res = await bayarAngsuran(selectedPinjaman.id, { tanggal, metode });
+            setShowAngsur(false);
+            setSelectedPinjaman(null);
+            setRefreshNonce((n) => n + 1);
+            if (selectedPinjaman.id === pembayaranPinjamanId && res?.status === "lunas") {
+              setPembayaranPinjamanId("");
+            }
+            setSubmitNotice({
+              tone: "ok",
+              text:
+                res?.status === "lunas"
+                  ? "Pembayaran angsuran berhasil; sisa pokok habis — pinjaman dilunasi."
+                  : "Pembayaran angsuran berhasil.",
+            });
+          } catch (err: any) {
+            setSubmitNotice({ tone: "err", text: err?.message || "Gagal membayar angsuran." });
+          } finally {
+            setActionLoading(false);
+          }
+        }}
+        pinjaman={selectedPinjaman ? { nomor: selectedPinjaman.no, angsuran: Number(selectedPinjaman.angsuran_per_bulan || 0) } : null}
+      />
+      <LunasDialog
+        open={showLunas}
+        loading={actionLoading}
+        onClose={() => {
+          setShowLunas(false);
+          setSelectedPinjaman(null);
+        }}
+        onConfirm={async () => {
+          if (!selectedPinjaman) return;
+          setActionLoading(true);
+          try {
+            await lunasiPinjaman(selectedPinjaman.id);
+            setShowLunas(false);
+            setSelectedPinjaman(null);
+            setRefreshNonce((n) => n + 1);
+            if (selectedPinjaman.id === pembayaranPinjamanId) {
+              setPembayaranPinjamanId("");
+            }
+            setSubmitNotice({ tone: "ok", text: "Pinjaman berhasil dilunasi." });
+          } catch (err: any) {
+            setSubmitNotice({ tone: "err", text: err?.message || "Gagal melunasi pinjaman." });
+          } finally {
+            setActionLoading(false);
+          }
+        }}
+        sisaPokok={selectedPinjaman ? Number(selectedPinjaman.sisa_pokok || 0) : 0}
+      />
     </div>
   );
 }

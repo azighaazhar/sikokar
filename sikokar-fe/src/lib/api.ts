@@ -524,4 +524,31 @@ export type Penjualan = {
   jenis: string;
   total: number;
   status: string;
+  lokasi_id?: string | null;
+  anggota_id?: string | null;
+  subtotal?: number | null;
+  diskon_total?: number | null;
+  ppn_total?: number | null;
 };
+
+/** Payload GET /reports/analytics */
+export type ReportsAnalyticsData = {
+  generatedAt: string;
+  kpis: {
+    penjualan: { total: number; count: number };
+    pembelian: { total: number; count: number };
+    stok: { totalUnit: number; baris: number };
+    simpanan: { total: number };
+    pinjaman: { outstanding: number; totalDisetujui: number; countAktif: number };
+    kredit: { totalSisa: number; count: number };
+  };
+  penjualanByMonth: Array<{ period: string; total: number; transaksi: number }>;
+  pembelianByMonth: Array<{ period: string; total: number; transaksi: number }>;
+  simpananByJenis: Array<{ jenis: string; saldo: number }>;
+  pinjamanByStatus: Array<{ status: string; count: number }>;
+  kreditByJenis: Array<{ jenis: string; pokok: number; sisa: number; count: number }>;
+  stokTop: Array<{ nama: string; jumlah: number }>;
+};
+
+export const getReportsAnalytics = () =>
+  apiRequest<{ data: ReportsAnalyticsData }>("/reports/analytics");

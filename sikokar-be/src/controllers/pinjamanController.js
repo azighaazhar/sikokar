@@ -1,3 +1,4 @@
+const { randomUUID } = require("crypto");
 const { db } = require("../services/db");
 
 /** Plafon per jabatan (Rp). */
@@ -288,4 +289,133 @@ const updatePinjaman = async (req, res) => {
   return res.json({ id, status: "aktif" });
 };
 
-module.exports = { listPinjaman, getPinjamanById, createPinjaman, updatePinjaman };
+const normalizeMetodePinjaman = (raw) => {
+  const s = String(raw || "")
+    .trim()
+    .toLowerCase();
+  if (s === "tunai") return "tunai";
+  if (s === "transfer") return "transfer";
+  if (s === "potong gaji" || s === "potong-gaji" || s === "potonggaji") return "potong-gaji";
+  return null;
+};
+
+/** Catat pembayaran angsuran bulanan + kurangi sisa pokok; otomatis lunas jika sisa habis. */
+const bayarAngsuran = async (req, res) => {
+  const { id } = req.params || {};
+  const { tanggal, metode } = req.body || {};
+
+  if (!tanggal) {
+    return res.status(400).json({ message: "tanggal wajib diisi" });
+  }
+
+  const metodeNorm = normalizeMetodePinjaman(metode);
+  if (!metodeNorm) {
+    return res.status(400).json({ message: "Metode harus Tunai, Transfer, atau Potong Gaji" });
+  }
+
+  const row = await db("pinjaman").where({ id }).first();
+  if (!row) {
+    return res.status(404).json({ message: "Pinjaman not found" });
+  }
+  if (row.status !== "aktif") {
+    return res.status(400).json({ message: "Hanya pinjaman aktif yang dapat diangsur" });
+  }
+
+  const sisa = Number(row.sisa_pokok || 0);
+  if (sisa <= 0) {
+    return res.status(400).json({ message: "Tidak ada sisa pokok untuk dibayar" });
+  }
+
+  const nominal = Number(row.nominal_disetujui || 0);
+  const tenor = Number(row.tenor || 12) || 12;
+  const bungaPct = Number(row.bunga_pct || 0);
+  const pokokPerMonth = tenor > 0 ? nominal / tenor : nominal;
+  const bungaPerMonth = (nominal * bungaPct) / 100;
+  const angsuranPlanned = Number(row.angsuran_per_bulan || pokokPerMonth + bungaPerMonth);
+
+  let bayarPokok = Math.min(pokokPerMonth, sisa);
+  let bayarBunga = Math.min(bungaPerMonth, Math.max(0, angsuranPlanned - bayarPokok));
+  bayarPokok = Math.min(bayarPokok, sisa);
+  const nominalTotal = bayarPokok + bayarBunga;
+
+  const userId = req.user && req.user.id ? req.user.id : null;
+  const bayarId = randomUUID();
+
+  let resultStatus = "aktif";
+  let resultSisa = sisa;
+
+  await db.transaction(async (trx) => {
+    const [cntRow] = await trx("pinjaman_bayar").where({ pinjaman_id: id }).count("* as total");
+    const cicilanKe = Number(cntRow?.total ?? 0) + 1;
+
+    await trx("pinjaman_bayar").insert({
+      id: bayarId,
+      pinjaman_id: id,
+      tgl: tanggal,
+      nominal_total: nominalTotal,
+      bayar_pokok: bayarPokok,
+      bayar_bunga: bayarBunga,
+      cicilan_ke: cicilanKe,
+      metode: metodeNorm,
+      user_id: userId
+    });
+
+    resultSisa = Math.max(0, Math.round((sisa - bayarPokok) * 100) / 100);
+    resultStatus = resultSisa <= 0.01 ? "lunas" : "aktif";
+
+    await trx("pinjaman")
+      .where({ id })
+      .update({
+        sisa_pokok: resultStatus === "lunas" ? 0 : resultSisa,
+        status: resultStatus
+      });
+  });
+
+  return res.json({ id, status: resultStatus, sisa_pokok: resultStatus === "lunas" ? 0 : resultSisa });
+};
+
+/** Tandai pinjaman lunas (sisa pokok dibayar penuh). */
+const lunasiPinjaman = async (req, res) => {
+  const { id } = req.params || {};
+  const row = await db("pinjaman").where({ id }).first();
+  if (!row) {
+    return res.status(404).json({ message: "Pinjaman not found" });
+  }
+  if (row.status !== "aktif") {
+    return res.status(400).json({ message: "Hanya pinjaman aktif yang dapat dilunasi" });
+  }
+
+  const sisa = Number(row.sisa_pokok || 0);
+  const userId = req.user && req.user.id ? req.user.id : null;
+
+  await db.transaction(async (trx) => {
+    if (sisa > 0) {
+      const [cntRow] = await trx("pinjaman_bayar").where({ pinjaman_id: id }).count("* as total");
+      const cicilanKe = Number(cntRow?.total ?? 0) + 1;
+      const tgl = new Date().toISOString().slice(0, 10);
+      await trx("pinjaman_bayar").insert({
+        id: randomUUID(),
+        pinjaman_id: id,
+        tgl,
+        nominal_total: sisa,
+        bayar_pokok: sisa,
+        bayar_bunga: 0,
+        cicilan_ke: cicilanKe,
+        metode: "pelunasan",
+        user_id: userId
+      });
+    }
+    await trx("pinjaman").where({ id }).update({ sisa_pokok: 0, status: "lunas" });
+  });
+
+  return res.json({ id, status: "lunas" });
+};
+
+module.exports = {
+  listPinjaman,
+  getPinjamanById,
+  createPinjaman,
+  updatePinjaman,
+  bayarAngsuran,
+  lunasiPinjaman
+};
